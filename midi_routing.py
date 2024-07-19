@@ -18,7 +18,7 @@ def in_to_out(in_msg, split_point):
     if in_msg is not None:
         (midi_msg, dt) = in_msg
         cmd = midi_msg[0]
-        print(cmd)
+        print(hex(cmd))
         # Channel conversion - with respect to split_point
         if midi_msg[1] >= split_point:
             new_cmd = (cmd & 0xF0) | 0x02  # Change channel to 3 (0x02 in 0-indexed)
