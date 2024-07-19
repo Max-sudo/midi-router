@@ -18,12 +18,22 @@ def in_to_out(in_msg, split_point):
     if in_msg is not None:
         (midi_msg, dt) = in_msg
         cmd = midi_msg[0]
-        print(cmd)
+
+        # Check if the message is a CC message
+        if (cmd & 0xF0) == 0xB0:  # CC messages have 0xB0 in their command byte
+            cc_number = midi_msg[1]
+            if cc_number == 33:  # Filter Cutoff CC for Sequential Take 5
+                new_value = midi_msg[2]  # The new value for the parameter
+                new_cmd = (cmd & 0xF0) | 0x02  # Change channel to 3 (0x02 in 0-indexed)
+                print(f"CC Message detected: {midi_msg}, remapped to: {[new_cmd, cc_number, new_value]}")
+                return [new_cmd, cc_number, new_value]
+
         # Channel conversion - with respect to split_point
         if midi_msg[1] >= split_point:
             new_cmd = (cmd & 0xF0) | 0x02  # Change channel to 3 (0x02 in 0-indexed)
         else:
             new_cmd = (cmd & 0xF0) | 0x00
+        print(f"Note Message detected: {midi_msg}, remapped to: {[new_cmd] + midi_msg[1:]}")
         return [new_cmd] + midi_msg[1:]  # Preserve other parts of the message
     return None
 

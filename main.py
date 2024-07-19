@@ -30,7 +30,6 @@ class MidiSplitApp(tk.Tk):
     def update_split_point(self, *args):
         split_value = self.split_point.get()
         self.value_display.config(text=f"Selected Split Point: {split_value}")
-        print(f"Split Point: {split_value}")
 
     def get_split_point(self):
         return self.split_point.get()
