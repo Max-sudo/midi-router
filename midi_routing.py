@@ -25,7 +25,7 @@ def in_to_out(in_msg, split_point):
             if cc_number == 33:  # Filter Cutoff CC for Sequential Take 5
                 new_value = midi_msg[2]  # The new value for the parameter
                 new_cmd = (cmd & 0xF0) | 0x02  # Change channel to 3 (0x02 in 0-indexed)
-                print(f"CC Message detected: {midi_msg}, remapped to: {[new_cmd, cc_number, new_value]}")
+                # print(f"CC Message detected: {midi_msg}, remapped to: {[new_cmd, cc_number, new_value]}")
                 return [new_cmd, cc_number, new_value]
 
         # Channel conversion - with respect to split_point
@@ -33,7 +33,7 @@ def in_to_out(in_msg, split_point):
             new_cmd = (cmd & 0xF0) | 0x02  # Change channel to 3 (0x02 in 0-indexed)
         else:
             new_cmd = (cmd & 0xF0) | 0x00
-        print(f"Note Message detected: {midi_msg}, remapped to: {[new_cmd] + midi_msg[1:]}")
+        # print(f"Note Message detected: {midi_msg}, remapped to: {[new_cmd] + midi_msg[1:]}")
         return [new_cmd] + midi_msg[1:]  # Preserve other parts of the message
     return None
 
@@ -66,4 +66,4 @@ def run_midi_routing(split_point_callback):
                     send_msg_to_outs(out_msg, output_devices)
                     print(f"Message sent: {out_msg}")
         
-        time.sleep(0.001)  # Small sleep to prevent high CPU usage
+        time.sleep(0.0001)  # Small sleep to prevent high CPU usage
