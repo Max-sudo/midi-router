@@ -1,5 +1,6 @@
 import time
 import rtmidi
+import re
 
 # Function to create MIDI input or output device
 def create_device(device_name, midi_out=True):
@@ -9,7 +10,10 @@ def create_device(device_name, midi_out=True):
         midi = rtmidi.MidiIn()
 
     midi_ports = midi.get_ports()
+    midi_ports = [re.sub(r'\s\s.*', '', midi_port).strip() for midi_port in midi_ports]
+
     port_dct = {v: k for k, v in enumerate(midi_ports)}
+    # print(port_dct)
     midi.open_port(port_dct[device_name])
     return midi
 
@@ -24,17 +28,28 @@ def in_to_out(in_msg, split_point):
             cc_number = midi_msg[1]
             if cc_number == 33:  # Filter Cutoff CC for Sequential Take 5
                 new_value = midi_msg[2]  # The new value for the parameter
-                new_cmd = (cmd & 0xF0) | 0x02  # Change channel to 3 (0x02 in 0-indexed)
+                t5_channel = 0x02
+                new_cmd = (cmd & 0xF0) | t5_channel  # Change channel to 3 (0x02 in 0-indexed)
                 # print(f"CC Message detected: {midi_msg}, remapped to: {[new_cmd, cc_number, new_value]}")
-                return [new_cmd, cc_number, new_value]
+                return [new_cmd, cc_number, new_value], channel
+            
+            elif cc_number in [4, 5, 6, 7, 8, 9, 10, 11]:  # HX FX midi CC #s
+                new_value = midi_msg[2]  # The new value for the parameter
+                channel = 0x01
+                new_cmd = (cmd & 0xF0) | channel  # Change channel to 2 (0x01 in 0-indexed)
+                return [new_cmd, cc_number, new_value], channel+1
 
-        # Channel conversion - with respect to split_point
-        if midi_msg[1] >= split_point:
-            new_cmd = (cmd & 0xF0) | 0x02  # Change channel to 3 (0x02 in 0-indexed)
-        else:
-            new_cmd = (cmd & 0xF0) | 0x00
+        # If message is note data
+        if (cmd & 0xF0) in [0x90, 0x80]:
+            # Channel conversion - with respect to split_point
+            if midi_msg[1] >= split_point:
+                new_cmd = (cmd & 0xF0) | 0x02  # Change channel to 3 (0x02 in 0-indexed)
+            else:
+                new_cmd = (cmd & 0xF0) | 0x00
+
         # print(f"Note Message detected: {midi_msg}, remapped to: {[new_cmd] + midi_msg[1:]}")
-        return [new_cmd] + midi_msg[1:]  # Preserve other parts of the message
+        return [new_cmd] + midi_msg[1:], None  # Preserve other parts of the message
+        
     return None
 
 def send_msg_to_outs(msg, list_of_outs):
@@ -46,10 +61,11 @@ def run_midi_routing(split_point_callback):
     lk_in = create_device('Launchkey MK3 37 LKMK3 MIDI Out', midi_out=False)
     t5_out = create_device('Take5', midi_out=True)
     sk_out = create_device('HAMMOND SK PRO', midi_out=True)
+    hx_out = create_device('HELIX', midi_out=True)
 
     # List of input devices
     input_devices = [lk_in]
-    output_devices = [sk_out, t5_out]
+    output_devices = [sk_out, t5_out, hx_out]
 
     while True:
         split_point = split_point_callback()  # Get the current split point from the callback
@@ -61,9 +77,9 @@ def run_midi_routing(split_point_callback):
 
         if messages:
             for msg_and_dt in messages:
-                out_msg = in_to_out(msg_and_dt, split_point)
+                out_msg, channel = in_to_out(msg_and_dt, split_point)
                 if out_msg:
                     send_msg_to_outs(out_msg, output_devices)
-                    print(f"Message sent: {out_msg}")
+                    print(f"Message sent: {out_msg} on channel {channel}")
         
         time.sleep(0.0001)  # Small sleep to prevent high CPU usage
