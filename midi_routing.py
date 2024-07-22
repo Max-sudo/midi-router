@@ -51,9 +51,10 @@ def in_to_out(in_msg, split_point):
         elif (cmd & 0xF0) in [0x90, 0x80]:  # Note On/Off messages
             if midi_msg[1] >= split_point:
                 new_cmd = (cmd & 0xF0) | t5_channel
+                return ([new_cmd] + midi_msg[1:], t5_channel)
             else:
                 new_cmd = (cmd & 0xF0) | 0x00
-            return ([new_cmd] + midi_msg[1:], None)
+                return ([new_cmd] + midi_msg[1:], None)
 
         elif (cmd & 0xF0) == 0xE0:  # Pitch Bend messages
             new_cmd_1 = (cmd & 0xF0) | t5_channel
@@ -93,6 +94,6 @@ def run_midi_routing(split_point_callback):
                 out_msg, channel = in_to_out(msg_and_dt, split_point)
                 if out_msg:
                     send_msg_to_outs(out_msg, current_outputs)
-                    print(f"Message sent: {out_msg} on channel {channel}")
+                    print(f"Message sent: {out_msg} on channel {channel+1}")
 
         time.sleep(0.0001)  # Small sleep to prevent high CPU usage
