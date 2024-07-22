@@ -10,10 +10,9 @@ def create_device(device_name, midi_out=True):
         midi = rtmidi.MidiIn()
 
     midi_ports = midi.get_ports()
-    midi_ports = [re.sub(r'\s\s.*', '', midi_port).strip() for midi_port in midi_ports]
+    # midi_ports = [re.sub(r'\s\s.*', '', midi_port).strip() for midi_port in midi_ports]
 
     port_dct = {v: k for k, v in enumerate(midi_ports)}
-    # print(port_dct)
     midi.open_port(port_dct[device_name])
     return midi
 
@@ -30,8 +29,7 @@ def in_to_out(in_msg, split_point):
                 new_value = midi_msg[2]  # The new value for the parameter
                 t5_channel = 0x02
                 new_cmd = (cmd & 0xF0) | t5_channel  # Change channel to 3 (0x02 in 0-indexed)
-                # print(f"CC Message detected: {midi_msg}, remapped to: {[new_cmd, cc_number, new_value]}")
-                return [new_cmd, cc_number, new_value], channel
+                return [new_cmd, cc_number, new_value], t5_channel
             
             elif cc_number in [4, 5, 6, 7, 8, 9, 10, 11]:  # HX FX midi CC #s
                 new_value = midi_msg[2]  # The new value for the parameter
@@ -47,7 +45,6 @@ def in_to_out(in_msg, split_point):
             else:
                 new_cmd = (cmd & 0xF0) | 0x00
 
-        # print(f"Note Message detected: {midi_msg}, remapped to: {[new_cmd] + midi_msg[1:]}")
         return [new_cmd] + midi_msg[1:], None  # Preserve other parts of the message
         
     return None
@@ -56,21 +53,26 @@ def send_msg_to_outs(msg, list_of_outs):
     for device_out in list_of_outs:
         device_out.send_message(msg)
 
-def run_midi_routing(split_point_callback):
-    # Create MIDI input and output devices
-    lk_in = create_device('Launchkey MK3 37 LKMK3 MIDI Out', midi_out=False)
-    t5_out = create_device('Take5', midi_out=True)
-    sk_out = create_device('HAMMOND SK PRO', midi_out=True)
-    hx_out = create_device('HELIX', midi_out=True)
+def update_input_devices(input_devices):
+    global current_inputs
+    current_inputs = [create_device(device, midi_out=False) for device in input_devices]
 
-    # List of input devices
-    input_devices = [lk_in]
-    output_devices = [sk_out, t5_out, hx_out]
+def update_output_devices(output_devices):
+    global current_outputs
+    current_outputs = [create_device(device, midi_out=True) for device in output_devices]
+
+def run_midi_routing(split_point_callback, input_devices_callback, output_devices_callback):
+    global current_inputs, current_outputs
+    current_inputs = []
+    current_outputs = []
 
     while True:
         split_point = split_point_callback()  # Get the current split point from the callback
+        # input_devices = input_devices_callback  # Get the current input devices from the callback
+        # output_devices = output_devices_callback  # Get the current output devices from the callback
+
         messages = []
-        for device in input_devices:
+        for device in current_inputs:
             msg = device.get_message()
             if msg is not None:
                 messages.append(msg)
@@ -79,7 +81,7 @@ def run_midi_routing(split_point_callback):
             for msg_and_dt in messages:
                 out_msg, channel = in_to_out(msg_and_dt, split_point)
                 if out_msg:
-                    send_msg_to_outs(out_msg, output_devices)
+                    send_msg_to_outs(out_msg, current_outputs)
                     print(f"Message sent: {out_msg} on channel {channel}")
         
         time.sleep(0.0001)  # Small sleep to prevent high CPU usage
