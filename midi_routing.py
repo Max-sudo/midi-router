@@ -94,6 +94,6 @@ def run_midi_routing(split_point_callback):
                 out_msg, channel = in_to_out(msg_and_dt, split_point)
                 if out_msg:
                     send_msg_to_outs(out_msg, current_outputs)
-                    print(f"Message sent: {out_msg} on channel {channel+1}")
+                    print(f"Message sent: {out_msg} on channel {channel}")
 
         time.sleep(0.0001)  # Small sleep to prevent high CPU usage
