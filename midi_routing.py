@@ -29,7 +29,7 @@ def in_to_out(in_msg, split_point):
 
         # Want to dynamically set this in future
         t5_channel = 0x02
-        hx_channel = 0x01  
+        hx_channel = 0x00  
 
         if (cmd & 0xF0) == 0xB0:  # CC messages
             cc_number = midi_msg[1]
@@ -44,7 +44,7 @@ def in_to_out(in_msg, split_point):
                 new_cmd_2 = (cmd & 0xF0) | hx_channel
                 return ([new_cmd_1, cc_number, new_value], [new_cmd_2, cc_number, new_value])
 
-            elif cc_number in range(4, 12) or cc_number in range(49, 66):  # HX FX midi CC #s and Helix CCs
+            elif cc_number in range(4, 25) or cc_number in range(49, 66):  # HX FX midi CC #s and Helix CCs
                 new_cmd = (cmd & 0xF0) | hx_channel
                 return ([new_cmd, cc_number, new_value], hx_channel)
 
