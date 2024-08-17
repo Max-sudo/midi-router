@@ -1,0 +1,39 @@
+TO-DOs
+The product is midi control software that provides complete and intelligent control over any of your midi devices:  
+    -supports any arrangement of midi master/slave setups with unlimited instruments and controllers
+    -dynamically adjusts to user supplied midi implmentation charts for smart drag-n-drop controller assignment
+
+###### 08/14 - 08/ ##########
+- [] Define exact specifications for MVP
+    -Load midi IC and drag-n-drop options onto controller
+    -Then incorporate smart templates by telling gpt what most common effects are or asking it
+    - Create templates for easy loading for unseen charts
+- [] Research offshore outsourcing
+
+
+
+- [] Identify Expertise needed:
+    
+    - [] Hardware development
+        - [] Design
+            - [] LC XL replica
+            - [] LC XL but with screen strip below knobs to show values
+        - [] Manufacture
+            - [] Josh Fairbairn
+                - [] Research manufacturing
+                -Questions:
+                    - If i want to manufacture LC, what do i need to be thinking about with regards to software hardware integration? can i expect
+                        a manufacturer will integrate software, will i find another party? what if i have my own? software at both low and high levels of operations
+                    -
+    - [] Software development
+        - [] Compute processing 
+            -How much processing power do we need to manage many instruments with many CC messages at onces
+        - [] Smart coding
+            -How to integrate chatgpt into code for dynamic UI adjustments when presented with a novel midi implementation chart
+
+    - [] Running a company
+        - [] Ethan Blagg: 
+            -They developed software in house?
+        - [] How to attract talented people with no money or product yet
+            - [] Research outsourcing app/UI
+                -Maybe just for prototype then integrate

@@ -1,0 +1,5 @@
+Leaving state - 08/14
+-Using nord as input triggers itself below split and t5 above split...however the above checkbox has to be checked for nord. if only checked
+    for t5, no trigger. so presumably we need to ensure the the nord is transmitting midi from above split even when above box is not checked (and assuming
+    the above box is checked for t5). need to ensure t5 is receiving signals. also gpt just gave us new routing code to get channels dynamically 
+    so need to make sure that's happening
