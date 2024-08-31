@@ -27,8 +27,8 @@ class MidiSplitApp(ThemedTk):
 
         # Update the column labels to include separate "Above" and "Below" headers
         ttk.Label(self.device_frame, text="Devices").grid(row=0, column=0, padx=5, pady=5)
-        ttk.Label(self.device_frame, text="Input").grid(row=0, column=1, padx=5, pady=5)
-        ttk.Label(self.device_frame, text="Output").grid(row=0, column=2, padx=5, pady=5)
+        ttk.Label(self.device_frame, text="Send").grid(row=0, column=1, padx=5, pady=5)
+        ttk.Label(self.device_frame, text="Receive").grid(row=0, column=2, padx=5, pady=5)
         ttk.Label(self.device_frame, text="Above").grid(row=0, column=3, padx=5, pady=5)  # New column for Above
         ttk.Label(self.device_frame, text="Below").grid(row=0, column=4, padx=5, pady=5)  # New column for Below
 
