@@ -34,9 +34,9 @@ class MidiSplitApp(ThemedTk):
         ttk.Label(self.device_frame, text="Above").grid(row=0, column=3, padx=5, pady=5)  # New column for Above
         ttk.Label(self.device_frame, text="Below").grid(row=0, column=4, padx=5, pady=5)  # New column for Below
 
-        input_devices = midi_routing.rtmidi.MidiIn().get_ports()
-        output_devices = midi_routing.rtmidi.MidiOut().get_ports()
-        self.device_vars = {device: {"input": tk.BooleanVar(), "output": tk.BooleanVar(), "above": tk.BooleanVar(), "below": tk.BooleanVar()} for device in set(input_devices + output_devices)}
+        input_devices = [d for d in midi_routing.rtmidi.MidiIn().get_ports() if 'HUI' not in d]
+        output_devices = [d for d in midi_routing.rtmidi.MidiOut().get_ports() if 'HUI' not in d]
+        self.device_vars = {device: {"input": tk.BooleanVar(), "output": tk.BooleanVar(), "above": tk.BooleanVar(), "below": tk.BooleanVar()} for device in sorted(set(input_devices + output_devices))}
 
         for i, device in enumerate(self.device_vars.keys()):
             ttk.Label(self.device_frame, text=device).grid(row=i+1, column=0, padx=5, pady=5)
