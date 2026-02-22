@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json
 import tkinter as tk
+from tkinter import messagebox
 import customtkinter as ctk
 import threading
 from pathlib import Path
@@ -97,6 +98,8 @@ class MidiSplitApp(ctk.CTk):
         name = self._preset_var.get()
         presets = self._load_presets()
         if name not in presets:
+            return
+        if not messagebox.askyesno("Delete Preset", f"Delete \"{name}\"?", icon="warning"):
             return
         del presets[name]
         self._save_presets(presets)
