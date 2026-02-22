@@ -1,7 +1,17 @@
 import time
 import rtmidi
+import queue
+import threading
 
+# Thread-safe queue for incoming MIDI events (device_name, (message, dt))
+message_queue = queue.Queue()
+
+# Lock to protect access to shared device/output lists
+devices_lock = threading.Lock()
 current_outputs = []
+# Mapping: device_name -> role ('above' or 'below')
+current_input_roles = {}
+
 
 def create_device(device_name, midi_out=True):
     if midi_out:
@@ -10,8 +20,29 @@ def create_device(device_name, midi_out=True):
         midi = rtmidi.MidiIn()
     midi_ports = midi.get_ports()
     port_dct = {v: k for k, v in enumerate(midi_ports)}
+    if device_name not in port_dct:
+        raise ValueError(f"MIDI port '{device_name}' not found")
     midi.open_port(port_dct[device_name])
+
+    # Attach device name for later identification
+    try:
+        midi.device_name = device_name
+    except Exception:
+        pass
+
+    # For inputs, set a callback that enqueues messages
+    if not midi_out:
+        def _midi_in_callback(event, data=None):
+            # event is (message, delta_time)
+            try:
+                message_queue.put((device_name, event))
+            except Exception:
+                pass
+
+        midi.set_callback(_midi_in_callback)
+
     return midi
+
 
 def in_to_out(in_msg, split_point):
     if in_msg is not None:
@@ -24,15 +55,16 @@ def in_to_out(in_msg, split_point):
 
         # Determine the device to route based on the split point and input device selection
         if (cmd & 0xF0) == 0x90 or (cmd & 0xF0) == 0x80:  # Note On/Off messages
+            # Safely access note value
+            if len(midi_msg) < 2:
+                return (None, None)
             note = midi_msg[1]
             if note >= split_point:
-                # Above the split point: Route to Take5 (or any selected "above" device)
-                selected_device_channel = 0x02  # Adjust this dynamically if needed
+                selected_device_channel = 0x02
                 new_cmd = (cmd & 0xF0) | selected_device_channel
                 return ([new_cmd] + midi_msg[1:], selected_device_channel)
             else:
-                # Below the split point: Route to Helix (or any selected "below" device)
-                selected_device_channel = 0x00  # Adjust this dynamically if needed
+                selected_device_channel = 0x00
                 new_cmd = (cmd & 0xF0) | selected_device_channel
                 return ([new_cmd] + midi_msg[1:], selected_device_channel)
         else:
@@ -42,49 +74,74 @@ def in_to_out(in_msg, split_point):
     return (None, None)
 
 
-
 def send_msg_to_outs(msg, list_of_outs):
+    if not list_of_outs:
+        return
     if isinstance(msg[0], list):  # Handle pitch bend with multiple messages
         for m in msg:
             for device_out in list_of_outs:
-                device_out.send_message(m)
+                try:
+                    device_out.send_message(m)
+                except Exception:
+                    pass
     else:
         for device_out in list_of_outs:
-            device_out.send_message(msg)
+            try:
+                device_out.send_message(msg)
+            except Exception:
+                pass
 
-# Global variables to keep track of devices
-current_above_split_inputs = []
-current_below_split_inputs = []
 
 def update_current_devices(above_split_inputs, below_split_inputs, outputs):
-    global current_above_split_inputs, current_below_split_inputs, current_outputs
-    current_above_split_inputs = above_split_inputs
-    current_below_split_inputs = below_split_inputs
-    current_outputs = outputs
+    global current_outputs, current_input_roles
+    with devices_lock:
+        # Update outputs
+        current_outputs = outputs
+
+        # Rebuild role mapping from device objects (they have `device_name` set in `create_device`)
+        roles = {}
+        for dev in above_split_inputs:
+            name = getattr(dev, 'device_name', None)
+            if name:
+                roles[name] = 'above'
+        for dev in below_split_inputs:
+            name = getattr(dev, 'device_name', None)
+            if name:
+                roles[name] = 'below'
+        current_input_roles = roles
+
 
 def run_midi_routing(split_point_callback):
     while True:
+        try:
+            device_name, event = message_queue.get(timeout=0.1)
+        except queue.Empty:
+            continue
+
+        (midi_msg, dt) = event
         split_point = split_point_callback()
-        messages = []
 
-        # Handle messages from inputs assigned to "Above" the split point
-        for device in current_above_split_inputs:
-            msg = device.get_message()
-            if msg is not None and msg[0][1] >= split_point:  # Only process messages above the split point
-                messages.append(msg)
+        with devices_lock:
+            role = current_input_roles.get(device_name)
+            outs = list(current_outputs)
 
-        # Handle messages from inputs assigned to "Below" the split point
-        for device in current_below_split_inputs:
-            msg = device.get_message()
-            if msg is not None and msg[0][1] < split_point:  # Only process messages below the split point
-                messages.append(msg)
+        if role is None:
+            continue
 
-        if messages:
-            for msg_and_dt in messages:
-                out_msg, channel = in_to_out(msg_and_dt, split_point)
-                if out_msg:
-                    send_msg_to_outs(out_msg, current_outputs)
-                    print(f"Message sent: {out_msg} on channel {channel}")
+        # If it's a note message, apply split filtering based on role
+        cmd = midi_msg[0]
+        if (cmd & 0xF0) == 0x90 or (cmd & 0xF0) == 0x80:
+            if len(midi_msg) < 2:
+                continue
+            note = midi_msg[1]
+            if role == 'above' and note < split_point:
+                continue
+            if role == 'below' and note >= split_point:
+                continue
 
-        time.sleep(0.0001)
+        out_msg, channel = in_to_out((midi_msg, dt), split_point)
+        if out_msg:
+            send_msg_to_outs(out_msg, outs)
+            print(f"Message sent: {out_msg} on channel {channel}")
+
 
