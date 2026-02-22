@@ -1,67 +1,64 @@
 #!/usr/bin/env python3
 import tkinter as tk
-from tkinter import ttk
+import customtkinter as ctk
 import threading
 import midi_routing
-from ttkthemes import ThemedTk  # Import for third-party themes
 
-class MidiSplitApp(ThemedTk):
-    def __init__(self):
+ctk.set_appearance_mode("dark")
+ctk.set_default_color_theme("blue")
+
+class MidiSplitApp(ctk.CTk):
+    def __init__(self, input_devices, output_devices):
         super().__init__()
-        self.set_theme('arc')
-        self.title("MIDI Split Point Selector")
-        self.geometry("350x300")  # Adjust size for additional widgets
+        self.title("MIDI Router")
+        self.minsize(420, 300)
         self.split_point = tk.IntVar(value=60)
-        self.style = ttk.Style(self)
-        self.style.configure("TFrame", background="#f0f0f0")
-        self.style.configure("TLabel", background="#f0f0f0", foreground="#333333")
-        self.style.configure("TScale", background="#ffffff")
-        self.create_ui()
+        self.create_ui(input_devices, output_devices)
+        # Auto-size window to fit content so no labels are clipped
+        self.update_idletasks()
+        self.geometry(f"{self.winfo_reqwidth()}x{self.winfo_reqheight()}")
 
-    def create_ui(self):
-        banner_frame = ttk.Frame(self, padding="10")
-        banner_frame.pack(fill='x', padx=10, pady=10)
-        banner_label = ttk.Label(banner_frame, text="Midi-Router", font=("Helvetica", 16, "bold"))
-        banner_label.pack()
+    def create_ui(self, input_devices, output_devices):
+        # Header
+        header_frame = ctk.CTkFrame(self, fg_color="transparent")
+        header_frame.pack(fill='x', padx=20, pady=(20, 5))
+        ctk.CTkLabel(header_frame, text="MIDI Router", font=ctk.CTkFont(size=22, weight="bold")).pack()
 
-        self.device_frame = ttk.Frame(self, padding="10")
-        self.device_frame.pack(pady=10, fill='x')
+        # Device list
+        self.device_frame = ctk.CTkFrame(self)
 
-        # Update the column labels to include separate "Above" and "Below" headers
-        ttk.Label(self.device_frame, text="Devices").grid(row=0, column=0, padx=5, pady=5)
-        ttk.Label(self.device_frame, text="Send").grid(row=0, column=1, padx=5, pady=5)
-        ttk.Label(self.device_frame, text="Receive").grid(row=0, column=2, padx=5, pady=5)
-        ttk.Label(self.device_frame, text="Above").grid(row=0, column=3, padx=5, pady=5)  # New column for Above
-        ttk.Label(self.device_frame, text="Below").grid(row=0, column=4, padx=5, pady=5)  # New column for Below
+        self.device_frame.pack(padx=20, pady=10, fill='both', expand=True)
+        self.device_frame.columnconfigure(0, weight=1, minsize=200)
+        self.device_frame.columnconfigure(1, minsize=70)
+        self.device_frame.columnconfigure(2, minsize=70)
 
-        input_devices = [d for d in midi_routing.rtmidi.MidiIn().get_ports() if 'HUI' not in d]
-        output_devices = [d for d in midi_routing.rtmidi.MidiOut().get_ports() if 'HUI' not in d]
+        # Column headers
+        ctk.CTkLabel(self.device_frame, text="Device", font=ctk.CTkFont(weight="bold"), anchor='w').grid(row=0, column=0, padx=(15, 5), pady=(12, 6), sticky='w')
+        ctk.CTkLabel(self.device_frame, text="Send", font=ctk.CTkFont(weight="bold")).grid(row=0, column=1, pady=(12, 6))
+        ctk.CTkLabel(self.device_frame, text="Receive", font=ctk.CTkFont(weight="bold")).grid(row=0, column=2, pady=(12, 6))
+
         self.device_vars = {device: {"input": tk.BooleanVar(), "output": tk.BooleanVar(), "above": tk.BooleanVar(), "below": tk.BooleanVar()} for device in sorted(set(input_devices + output_devices))}
 
         for i, device in enumerate(self.device_vars.keys()):
-            ttk.Label(self.device_frame, text=device).grid(row=i+1, column=0, padx=5, pady=5)
+            row = i + 1
+            ctk.CTkLabel(self.device_frame, text=device, anchor='w').grid(row=row, column=0, padx=(15, 5), pady=6, sticky='w')
 
             if device in input_devices:
-                ttk.Checkbutton(self.device_frame, variable=self.device_vars[device]["input"], command=self.update_devices).grid(row=i+1, column=1, padx=5, pady=5)
-                ttk.Checkbutton(self.device_frame, variable=self.device_vars[device]["above"], command=self.update_devices).grid(row=i+1, column=3, padx=5, pady=5)  # Above column
-                ttk.Checkbutton(self.device_frame, variable=self.device_vars[device]["below"], command=self.update_devices).grid(row=i+1, column=4, padx=5, pady=5)  # Below column
+                ctk.CTkCheckBox(self.device_frame, text="", width=24, checkbox_width=24, checkbox_height=24, variable=self.device_vars[device]["input"], command=self.update_devices).grid(row=row, column=1, pady=6)
 
             if device in output_devices:
-                ttk.Checkbutton(self.device_frame, variable=self.device_vars[device]["output"], command=self.update_devices).grid(row=i+1, column=2, padx=5, pady=5)
+                ctk.CTkCheckBox(self.device_frame, text="", width=24, checkbox_width=24, checkbox_height=24, variable=self.device_vars[device]["output"], command=self.update_devices).grid(row=row, column=2, pady=6)
 
-        split_point_frame = ttk.Frame(self, padding="10")
-        split_point_frame.pack(side='bottom', fill='x', padx=10, pady=10)
-        self.label = ttk.Label(split_point_frame, text="Select Split Point")
-        self.label.pack(pady=5)
-        self.slider = ttk.Scale(split_point_frame, from_=0, to=127, orient='horizontal', variable=self.split_point)
-        self.slider.pack(pady=5, fill='x')
-        self.value_display = ttk.Label(split_point_frame, text=f"Selected Split Point: {self.split_point.get()}")
+        # Split point UI — hidden for now, re-enable by calling .pack() on split_point_frame
+        self.split_point_frame = ctk.CTkFrame(self)
+        ctk.CTkLabel(self.split_point_frame, text="Split Point").pack(pady=5)
+        self.slider = ctk.CTkSlider(self.split_point_frame, from_=0, to=127, variable=self.split_point, command=self.update_split_point)
+        self.slider.pack(pady=5, fill='x', padx=10)
+        self.value_display = ctk.CTkLabel(self.split_point_frame, text=f"Selected: {self.split_point.get()}")
         self.value_display.pack(pady=5)
-        self.split_point.trace_add("write", self.update_split_point)
 
-    def update_split_point(self, *args):
-        split_value = self.split_point.get()
-        self.value_display.config(text=f"Selected Split Point: {split_value}")
+    def update_split_point(self, value):
+        self.value_display.configure(text=f"Selected: {int(value)}")
 
     def get_split_point(self):
         return self.split_point.get()
@@ -70,12 +67,15 @@ class MidiSplitApp(ThemedTk):
         above_split_inputs = [midi_routing.create_device(device, midi_out=False) for device, var in self.device_vars.items() if var["input"].get() and var["above"].get()]
         below_split_inputs = [midi_routing.create_device(device, midi_out=False) for device, var in self.device_vars.items() if var["input"].get() and var["below"].get()]
         outputs = [midi_routing.create_device(device, midi_out=True) for device, var in self.device_vars.items() if var["output"].get()]
-    
         midi_routing.update_current_devices(above_split_inputs, below_split_inputs, outputs)
 
 
 def run_app():
-    app = MidiSplitApp()
+    # Query MIDI ports before creating the CTk window to avoid a GIL/AppKit conflict
+    # that occurs when rtmidi (CoreMIDI) and customtkinter (AppKit) both initialize on the main thread.
+    input_devices = [d for d in midi_routing.rtmidi.MidiIn().get_ports() if 'HUI' not in d]
+    output_devices = [d for d in midi_routing.rtmidi.MidiOut().get_ports() if 'HUI' not in d]
+    app = MidiSplitApp(input_devices, output_devices)
     threading.Thread(target=midi_routing.run_midi_routing, args=(app.get_split_point,), daemon=True).start()
     app.mainloop()
 

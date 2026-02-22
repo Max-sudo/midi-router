@@ -1,16 +1,18 @@
 # -*- mode: python ; coding: utf-8 -*-
-
+import customtkinter
 
 a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[],
-    hiddenimports=[],
+    datas=[
+        (customtkinter.__path__[0], "customtkinter/"),
+    ],
+    hiddenimports=['customtkinter'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=['ttkthemes'],
     noarchive=False,
     optimize=0,
 )
