@@ -176,10 +176,11 @@ class MidiSplitApp(ctk.CTk):
         return self.split_point.get()
 
     def update_devices(self):
-        above_split_inputs = [midi_routing.create_device(device, midi_out=False) for device, var in self.device_vars.items() if var["input"].get() and var["above"].get()]
-        below_split_inputs = [midi_routing.create_device(device, midi_out=False) for device, var in self.device_vars.items() if var["input"].get() and var["below"].get()]
+        # With split UI hidden, all checked inputs are passed as above_split_inputs so
+        # they receive a role and messages are not dropped by the routing layer.
+        inputs = [midi_routing.create_device(device, midi_out=False) for device, var in self.device_vars.items() if var["input"].get()]
         outputs = [midi_routing.create_device(device, midi_out=True) for device, var in self.device_vars.items() if var["output"].get()]
-        midi_routing.update_current_devices(above_split_inputs, below_split_inputs, outputs)
+        midi_routing.update_current_devices(inputs, [], outputs)
 
 
 def run_app():
