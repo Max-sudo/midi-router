@@ -3,6 +3,7 @@ from tkinter import ttk
 import threading
 import midi_routing
 from ttkthemes import ThemedTk  # Import for third-party themes
+
 class MidiSplitApp(ThemedTk):
     def __init__(self):
         super().__init__()
