@@ -9,6 +9,7 @@ message_queue = queue.Queue()
 # Lock to protect access to shared device/output lists
 devices_lock = threading.Lock()
 current_outputs = []
+current_inputs = []  # held to keep MidiIn objects alive (and their callbacks active)
 # Mapping: device_name -> role ('above' or 'below')
 current_input_roles = {}
 
@@ -24,20 +25,15 @@ def create_device(device_name, midi_out=True):
         raise ValueError(f"MIDI port '{device_name}' not found")
     midi.open_port(port_dct[device_name])
 
-    # Attach device name for later identification
-    try:
-        midi.device_name = device_name
-    except Exception:
-        pass
-
     # For inputs, set a callback that enqueues messages
     if not midi_out:
         def _midi_in_callback(event, data=None):
             # event is (message, delta_time)
+            print(f"[CALLBACK] {device_name}: {event}")
             try:
                 message_queue.put((device_name, event))
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[CALLBACK ERROR] {e}")
 
         midi.set_callback(_midi_in_callback)
 
@@ -93,21 +89,21 @@ def send_msg_to_outs(msg, list_of_outs):
 
 
 def update_current_devices(above_split_inputs, below_split_inputs, outputs):
-    global current_outputs, current_input_roles
+    """
+    above_split_inputs / below_split_inputs: list of (device_name, MidiIn) tuples
+    outputs: list of MidiOut objects
+    """
+    global current_outputs, current_inputs, current_input_roles
     with devices_lock:
-        # Update outputs
         current_outputs = outputs
+        # Keep MidiIn objects alive so their callbacks remain active
+        current_inputs = [dev for _, dev in above_split_inputs + below_split_inputs]
 
-        # Rebuild role mapping from device objects (they have `device_name` set in `create_device`)
         roles = {}
-        for dev in above_split_inputs:
-            name = getattr(dev, 'device_name', None)
-            if name:
-                roles[name] = 'above'
-        for dev in below_split_inputs:
-            name = getattr(dev, 'device_name', None)
-            if name:
-                roles[name] = 'below'
+        for name, _ in above_split_inputs:
+            roles[name] = 'above'
+        for name, _ in below_split_inputs:
+            roles[name] = 'below'
         current_input_roles = roles
 
 

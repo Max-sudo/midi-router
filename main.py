@@ -178,7 +178,9 @@ class MidiSplitApp(ctk.CTk):
     def update_devices(self):
         # With split UI hidden, all checked inputs are passed as above_split_inputs so
         # they receive a role and messages are not dropped by the routing layer.
-        inputs = [midi_routing.create_device(device, midi_out=False) for device, var in self.device_vars.items() if var["input"].get()]
+        # Inputs are (name, device) tuples so update_current_devices can build the role map
+        # without relying on attribute assignment on rtmidi C extension objects.
+        inputs = [(device, midi_routing.create_device(device, midi_out=False)) for device, var in self.device_vars.items() if var["input"].get()]
         outputs = [midi_routing.create_device(device, midi_out=True) for device, var in self.device_vars.items() if var["output"].get()]
         midi_routing.update_current_devices(inputs, [], outputs)
 
