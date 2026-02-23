@@ -30,8 +30,7 @@ class MidiSplitApp(ctk.CTk):
 
     def _bring_to_front(self):
         self.lift()
-        self.attributes('-topmost', True)
-        self.after(100, lambda: self.attributes('-topmost', False))
+        self.focus_force()
 
     # ------------------------------------------------------------------
     # Preset helpers
