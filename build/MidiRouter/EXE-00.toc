@@ -56,7 +56,7 @@
  [],
  False,
  False,
- 1769018970,
+ 1771823090,
  [('runw',
    '/opt/homebrew/Caskroom/miniforge/base/envs/midi-router-env/lib/python3.11/site-packages/PyInstaller/bootloader/Darwin-64bit/runw',
    'EXECUTABLE')],
