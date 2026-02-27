@@ -92,10 +92,19 @@ function deletePreset() {
 function applyPreset(name) {
   const preset = presets[name];
   if (!preset) return;
-  if (preset.splits) splits.restore(preset.splits);
-  router.restoreRoutes(preset.routes);
+  // Restore splits FIRST so zone ranges are available for route restore
+  if (preset.splits) {
+    splits.restore(preset.splits);
+  }
+  router.restoreRoutes(preset.routes || []);
   lastUsed = name;
+  // Re-save preset with current route data (upgrades legacy presets with zone field)
+  presets[name] = {
+    routes: router.serialiseRoutes(),
+    splits: splits.serialise(),
+  };
   saveToStorage();
+  console.log(`[Presets] Applied "${name}": ${(preset.routes || []).length} routes, splits: ${JSON.stringify(preset.splits || 'none')}`);
 }
 
 function autoRestore() {

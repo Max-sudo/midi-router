@@ -81,7 +81,13 @@ const splitAddBtn    = $('#split-add');
 const splitRemoveBtn = $('#split-remove');
 const splitLabel     = $('#split-label');
 
-splitAddBtn.addEventListener('click', () => splits.addSplit());
+splitAddBtn.addEventListener('click', () => {
+  splits.addSplit();
+  const routeCount = router.getAllRoutes().length;
+  if (routeCount > 0) {
+    bus.emit('toast', 'Click a cable to assign it to a zone');
+  }
+});
 splitRemoveBtn.addEventListener('click', () => splits.removeSplit());
 
 function updateSplitControls({ splitCount }) {

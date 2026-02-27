@@ -33,11 +33,15 @@
 }
 
 /* Split markers */
-.keyboard__split-line {
-  stroke-width: 2;
-  stroke-dasharray: 4 3;
+.keyboard__split-hit {
   cursor: ew-resize;
-  pointer-events: stroke;
+}
+
+.keyboard__split-line {
+  stroke-width: 2.5;
+  stroke-dasharray: 4 3;
+  pointer-events: none;
+  filter: drop-shadow(0 0 3px currentColor);
 }
 
 .keyboard__split-line--1 {
@@ -49,8 +53,8 @@
 }
 
 .keyboard__split-label {
-  fill: var(--text-secondary);
   font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
   pointer-events: all;
   cursor: ew-resize;
   user-select: none;
@@ -58,10 +62,12 @@
 
 .keyboard__split-label--1 {
   fill: #00f0ff;
+  filter: drop-shadow(0 0 2px rgba(0, 240, 255, 0.5));
 }
 
 .keyboard__split-label--2 {
   fill: #ff9f0a;
+  filter: drop-shadow(0 0 2px rgba(255, 159, 10, 0.5));
 }
 
 /* Zone background overlays */

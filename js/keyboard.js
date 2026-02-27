@@ -21,6 +21,8 @@ const activeNotes = new Map();   // note → Set<color>
 
 // Split marker elements
 let splitGroup = null;
+let splitHit1 = null;
+let splitHit2 = null;
 let splitMarker1 = null;
 let splitMarker2 = null;
 let splitLabel1 = null;
@@ -55,7 +57,7 @@ function build() {
     if (!isBlack(n)) whiteCount++;
   }
   svgWidth = whiteCount * WHITE_KEY_W;
-  const svgHeight = WHITE_KEY_H + 20;
+  const svgHeight = WHITE_KEY_H + 24;
 
   svgEl = createSVGElement('svg', {
     class: 'keyboard-svg',
@@ -115,24 +117,46 @@ function build() {
   // Split markers group (on top of keys)
   splitGroup = createSVGElement('g', { class: 'keyboard__splits' });
 
+  // Invisible wide hit areas for easier grabbing
+  splitHit1 = createSVGElement('line', {
+    class: 'keyboard__split-hit',
+    y1: 0, y2: WHITE_KEY_H + 18, 'stroke-width': 16,
+    stroke: 'transparent', 'pointer-events': 'stroke',
+  });
+  splitHit1.style.display = 'none';
+  splitHit2 = createSVGElement('line', {
+    class: 'keyboard__split-hit',
+    y1: 0, y2: WHITE_KEY_H + 18, 'stroke-width': 16,
+    stroke: 'transparent', 'pointer-events': 'stroke',
+  });
+  splitHit2.style.display = 'none';
+
+  // Visible split lines (start hidden to prevent artifact at x=0)
   splitMarker1 = createSVGElement('line', {
     class: 'keyboard__split-line keyboard__split-line--1',
-    y1: 0, y2: WHITE_KEY_H, 'stroke-width': 2,
+    y1: 0, y2: WHITE_KEY_H, 'stroke-width': 2.5,
   });
+  splitMarker1.style.display = 'none';
   splitLabel1 = createSVGElement('text', {
     class: 'keyboard__split-label keyboard__split-label--1',
-    y: WHITE_KEY_H + 13, 'font-size': '9', 'text-anchor': 'middle',
+    y: WHITE_KEY_H + 15, 'font-size': '11', 'text-anchor': 'middle',
   });
+  splitLabel1.style.display = 'none';
 
   splitMarker2 = createSVGElement('line', {
     class: 'keyboard__split-line keyboard__split-line--2',
-    y1: 0, y2: WHITE_KEY_H, 'stroke-width': 2,
+    y1: 0, y2: WHITE_KEY_H, 'stroke-width': 2.5,
   });
+  splitMarker2.style.display = 'none';
   splitLabel2 = createSVGElement('text', {
     class: 'keyboard__split-label keyboard__split-label--2',
-    y: WHITE_KEY_H + 13, 'font-size': '9', 'text-anchor': 'middle',
+    y: WHITE_KEY_H + 15, 'font-size': '11', 'text-anchor': 'middle',
   });
+  splitLabel2.style.display = 'none';
 
+  // Hit areas first (behind), then visible markers on top
+  splitGroup.appendChild(splitHit1);
+  splitGroup.appendChild(splitHit2);
   splitGroup.appendChild(splitMarker1);
   splitGroup.appendChild(splitLabel1);
   splitGroup.appendChild(splitMarker2);
@@ -156,14 +180,18 @@ function updateSplitMarkers() {
   const show1 = count >= 1;
   const show2 = count >= 2;
 
-  splitMarker1.setAttribute('visibility', show1 ? 'visible' : 'hidden');
-  splitLabel1.setAttribute('visibility', show1 ? 'visible' : 'hidden');
-  splitMarker2.setAttribute('visibility', show2 ? 'visible' : 'hidden');
-  splitLabel2.setAttribute('visibility', show2 ? 'visible' : 'hidden');
+  splitMarker1.style.display = show1 ? '' : 'none';
+  splitLabel1.style.display  = show1 ? '' : 'none';
+  splitHit1.style.display    = show1 ? '' : 'none';
+  splitMarker2.style.display = show2 ? '' : 'none';
+  splitLabel2.style.display  = show2 ? '' : 'none';
+  splitHit2.style.display    = show2 ? '' : 'none';
 
   if (show1) {
     splitMarker1.setAttribute('x1', x1);
     splitMarker1.setAttribute('x2', x1);
+    splitHit1.setAttribute('x1', x1);
+    splitHit1.setAttribute('x2', x1);
     splitLabel1.setAttribute('x', x1);
     splitLabel1.textContent = noteNumberToName(splits.getSplit1());
   }
@@ -171,6 +199,8 @@ function updateSplitMarkers() {
   if (show2) {
     splitMarker2.setAttribute('x1', x2);
     splitMarker2.setAttribute('x2', x2);
+    splitHit2.setAttribute('x1', x2);
+    splitHit2.setAttribute('x2', x2);
     splitLabel2.setAttribute('x', x2);
     splitLabel2.textContent = noteNumberToName(splits.getSplit2());
   }
@@ -218,8 +248,8 @@ function initSplitDrag() {
 
   svgEl.addEventListener('pointerdown', (e) => {
     const count = splits.getCount();
-    if (count >= 1 && (e.target === splitMarker1 || e.target === splitLabel1)) dragging = 'split1';
-    else if (count >= 2 && (e.target === splitMarker2 || e.target === splitLabel2)) dragging = 'split2';
+    if (count >= 1 && (e.target === splitMarker1 || e.target === splitLabel1 || e.target === splitHit1)) dragging = 'split1';
+    else if (count >= 2 && (e.target === splitMarker2 || e.target === splitLabel2 || e.target === splitHit2)) dragging = 'split2';
     else return;
     e.preventDefault();
     svgEl.setPointerCapture(e.pointerId);

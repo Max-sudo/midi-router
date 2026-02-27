@@ -8,6 +8,8 @@ const outputsColumn = $('#outputs-column');
 const svg           = $('#connection-svg');
 const emptyMsg      = $('#patchbay-empty');
 const hintMsg       = $('#patchbay-hint');
+const cablePopup    = $('#cable-popup');
+const cablePopupBtns = $('#cable-popup-buttons');
 
 let inputPorts  = [];  // [{ id, name, el, jackEl }]
 let outputPorts = [];
@@ -345,6 +347,7 @@ function markOutputConnected(outputId, connected) {
 // ── Drag cable to keyboard zone ───────────────────────────────────
 function initCableDrag() {
   let dragRouteId = null;
+  let dragPointerId = null;
   let dragStartY = 0;
   const DRAG_THRESHOLD = 8;
   let dragActive = false;
@@ -352,10 +355,15 @@ function initCableDrag() {
   svg.addEventListener('pointerdown', (e) => {
     const cableEl = e.target.closest('.cable');
     if (!cableEl) return;
+    // Hide popup during drag
+    cablePopup.hidden = true;
+    clearHideTimer();
     dragRouteId = cableEl.dataset.routeId;
+    dragPointerId = e.pointerId;
     dragStartY = e.clientY;
     dragActive = false;
-    svg.setPointerCapture(e.pointerId);
+    // Don't capture pointer yet — let click events work normally.
+    // Capture only once drag threshold is exceeded.
   });
 
   svg.addEventListener('pointermove', (e) => {
@@ -365,6 +373,8 @@ function initCableDrag() {
     if (!dragActive) {
       if (Math.abs(e.clientY - dragStartY) < DRAG_THRESHOLD) return;
       dragActive = true;
+      // NOW capture pointer so drag continues outside SVG
+      svg.setPointerCapture(dragPointerId);
       // Dim the cable being dragged
       const cable = cables.get(dragRouteId);
       if (cable) cable.groupEl.classList.add('cable--dragging');
@@ -385,7 +395,7 @@ function initCableDrag() {
 
   svg.addEventListener('pointerup', (e) => {
     if (!dragRouteId) return;
-    svg.releasePointerCapture(e.pointerId);
+    if (dragActive) svg.releasePointerCapture(e.pointerId);
 
     if (dragActive) {
       // Suppress the click event that follows pointerup
@@ -411,6 +421,7 @@ function initCableDrag() {
     }
 
     dragRouteId = null;
+    dragPointerId = null;
     dragActive = false;
   });
 
@@ -422,8 +433,119 @@ function initCableDrag() {
       keyboard.clearDropZone();
     }
     dragRouteId = null;
+    dragPointerId = null;
     dragActive = false;
   });
+}
+
+// ── Cable hover popup (zone selector) ───────────────────────────────
+let popupRouteId = null;
+let popupHideTimer = null;
+
+function initCablePopup() {
+  // Show popup on cable hover
+  svg.addEventListener('pointerenter', (e) => {
+    const cableEl = e.target.closest('.cable');
+    if (!cableEl) return;
+    showCablePopup(cableEl);
+  }, true);
+
+  svg.addEventListener('pointerleave', (e) => {
+    const cableEl = e.target.closest('.cable');
+    if (!cableEl) return;
+    // Delay hide so user can move to popup
+    scheduleHidePopup();
+  }, true);
+
+  // Keep popup open while hovering its buttons
+  cablePopupBtns.addEventListener('pointerenter', () => {
+    clearHideTimer();
+  });
+  cablePopupBtns.addEventListener('pointerleave', () => {
+    scheduleHidePopup();
+  });
+}
+
+function showCablePopup(cableEl) {
+  clearHideTimer();
+  const routeId = cableEl.dataset.routeId;
+  const splitCount = splits.getCount();
+
+  // Always show: "All" + available zones
+  const zones = [{ key: 'all', label: 'All' }];
+  if (splitCount >= 1) {
+    zones.push({ key: 'low', label: 'Low' });
+    if (splitCount >= 2) zones.push({ key: 'mid', label: 'Mid' });
+    zones.push({ key: 'high', label: 'High' });
+  }
+
+  // Get current zone for this route
+  const cable = cables.get(routeId);
+  if (!cable) return;
+
+  popupRouteId = routeId;
+
+  // Build buttons
+  cablePopupBtns.innerHTML = '';
+  for (const z of zones) {
+    const btn = document.createElement('button');
+    btn.className = `cable-popup__btn cable-popup__btn--${z.key}`;
+    btn.textContent = z.label;
+    btn.addEventListener('click', () => {
+      const range = splits.getZoneRange(z.key);
+      bus.emit('patchbay:assign-zone', {
+        routeId: popupRouteId,
+        zone: z.key,
+        ...range,
+      });
+      // Update active state
+      cablePopupBtns.querySelectorAll('.cable-popup__btn').forEach(b =>
+        b.classList.remove('cable-popup__btn--active'));
+      btn.classList.add('cable-popup__btn--active');
+    });
+    cablePopupBtns.appendChild(btn);
+  }
+
+  // Mark current zone active (dynamic import to avoid circular dependency)
+  import('./router.js').then(routerMod => {
+    const route = routerMod.getRoute(routeId);
+    if (route) {
+      const currentZone = route.zone || 'all';
+      const activeBtn = cablePopupBtns.querySelector(`.cable-popup__btn--${currentZone}`);
+      if (activeBtn) activeBtn.classList.add('cable-popup__btn--active');
+    }
+  });
+
+  // Position popup near the cable midpoint
+  const paths = cableEl.querySelectorAll('path');
+  const line = paths[paths.length - 1]; // cable__line
+  if (line) {
+    const len = line.getTotalLength();
+    const mid = line.getPointAtLength(len / 2);
+    const svgRect = svg.getBoundingClientRect();
+    const x = svgRect.left + mid.x;
+    const y = svgRect.top + mid.y;
+    cablePopup.style.left = `${x}px`;
+    cablePopup.style.top  = `${y - 40}px`;
+    cablePopup.style.transform = 'translateX(-50%)';
+  }
+
+  cablePopup.hidden = false;
+}
+
+function scheduleHidePopup() {
+  clearHideTimer();
+  popupHideTimer = setTimeout(() => {
+    cablePopup.hidden = true;
+    popupRouteId = null;
+  }, 300);
+}
+
+function clearHideTimer() {
+  if (popupHideTimer) {
+    clearTimeout(popupHideTimer);
+    popupHideTimer = null;
+  }
 }
 
 // ── Window resize → update cable positions ─────────────────────────
@@ -437,6 +559,7 @@ function onResize() {
 export function init() {
   initClickConnect();
   initCableDrag();
+  initCablePopup();
   window.addEventListener('resize', onResize);
 
   bus.on('midi:ready', renderPorts);

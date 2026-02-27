@@ -82,10 +82,20 @@ export function clearAllRoutes() {
 }
 
 // ── Message handling ───────────────────────────────────────────────
+let _loggedFirst = false;
 function handleMessage(inputId, data, timestamp) {
   const status  = data[0];
   const msgType = midiStatusToType(status);
   const channel = midiChannel(status);
+
+  if (!_loggedFirst && msgType === 'noteon') {
+    console.log(`[Router] First note received: input=${inputId}, routes=${routes.size}, note=${data[1]}`);
+    for (const r of routes.values()) {
+      const range = effectiveRange(r);
+      console.log(`  Route ${r.id}: zone=${r.zone}, range=${range.noteLow}-${range.noteHigh}, input=${r.inputId}`);
+    }
+    _loggedFirst = true;
+  }
 
   // Flash input LED
   patchbay.flashInputLED(inputId);
@@ -109,8 +119,13 @@ function handleMessage(inputId, data, timestamp) {
     // Note range filter — use effective range (resolves zone dynamically)
     if ((msgType === 'noteon' || msgType === 'noteoff' || msgType === 'aftertouch') && data.length >= 2) {
       const note = data[1];
-      const { noteLow, noteHigh } = effectiveRange(route);
-      if (note < noteLow || note > noteHigh) continue;
+      const range = effectiveRange(route);
+      if (note < range.noteLow || note > range.noteHigh) {
+        if (msgType === 'noteon') {
+          console.log(`[Router] Filtered note ${note} (zone: ${route.zone}, range: ${range.noteLow}-${range.noteHigh})`);
+        }
+        continue;
+      }
     }
 
     // Build output data (possibly with channel remap)
@@ -132,6 +147,7 @@ const listeningInputs = new Set();
 
 function ensureListening(inputId) {
   if (listeningInputs.has(inputId)) return;
+  console.log(`[Router] Listening to input: ${inputId}`);
   midi.listenToInput(inputId, handleMessage);
   listeningInputs.add(inputId);
 }
@@ -179,21 +195,38 @@ export function restoreRoutes(serialised) {
     const inputId  = resolveDeviceId(s.inputId, s.inputName, devices.inputs);
     const outputId = resolveDeviceId(s.outputId, s.outputName, devices.outputs);
     if (inputId && outputId) {
+      // Detect zone from note range if not explicitly saved (legacy presets)
+      let zone = s.zone || 'all';
+      if (!s.zone && splits.getCount() > 0) {
+        zone = detectZoneFromRange(s.noteLow, s.noteHigh);
+      }
+      console.log(`[Router] Restoring route: ${s.inputName} → ${s.outputName}, zone: ${zone}, range: ${s.noteLow ?? 0}-${s.noteHigh ?? 127}`);
       addRoute(inputId, outputId, {
-        zone:       s.zone || 'all',
-        noteLow:    s.noteLow,
-        noteHigh:   s.noteHigh,
+        zone,
+        noteLow:    s.noteLow ?? 0,
+        noteHigh:   s.noteHigh ?? 127,
         channelIn:  s.channelIn,
         channelOut: s.channelOut,
-        passCC:     s.passCC,
-        passPitchBend:     s.passPitchBend,
-        passProgramChange: s.passProgramChange,
-        passAftertouch:    s.passAftertouch,
-        enabled:    s.enabled,
+        passCC:     s.passCC ?? true,
+        passPitchBend:     s.passPitchBend ?? true,
+        passProgramChange: s.passProgramChange ?? true,
+        passAftertouch:    s.passAftertouch ?? true,
+        enabled:    s.enabled ?? true,
         color:      s.color,
       });
     }
   }
+}
+
+// Detect zone by matching note range against current split positions
+function detectZoneFromRange(low, high) {
+  if (low === 0 && high === 127) return 'all';
+  for (const z of splits.getAvailableZones()) {
+    if (z === 'all') continue;
+    const range = splits.getZoneRange(z);
+    if (low === range.noteLow && high === range.noteHigh) return z;
+  }
+  return 'custom';
 }
 
 function getDeviceName(deviceId, type) {

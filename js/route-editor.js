@@ -21,6 +21,7 @@ const passAT     = $('#route-pass-at');
 const selectBtn  = $('#route-select-range');
 
 let currentRouteId = null;
+let _justOpened = false;
 
 // Zone display names
 const ZONE_LABELS = {
@@ -116,6 +117,10 @@ export function open(routeId) {
 
   panel.hidden = false;
   panel.classList.add('route-editor--open');
+
+  // Guard against click-outside closing in the same event cycle
+  _justOpened = true;
+  requestAnimationFrame(() => { _justOpened = false; });
 }
 
 export function close() {
@@ -219,5 +224,14 @@ export function init() {
   // Escape key closes
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !panel.hidden) close();
+  });
+
+  // Click outside closes — use 'click' (fires after mousedown) and
+  // skip if the editor was just opened in this event cycle.
+  document.addEventListener('click', (e) => {
+    if (_justOpened) return;
+    if (!panel.hidden && !panel.contains(e.target)) {
+      close();
+    }
   });
 }
