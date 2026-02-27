@@ -485,11 +485,14 @@ function showCablePopup(cableEl) {
 
   popupRouteId = routeId;
 
+  // Match popup color to the cable's color
+  cablePopup.style.setProperty('--popup-color', cable.color);
+
   // Build buttons
   cablePopupBtns.innerHTML = '';
   for (const z of zones) {
     const btn = document.createElement('button');
-    btn.className = `cable-popup__btn cable-popup__btn--${z.key}`;
+    btn.className = 'cable-popup__btn';
     btn.textContent = z.label;
     btn.addEventListener('click', () => {
       const range = splits.getZoneRange(z.key);
@@ -511,7 +514,14 @@ function showCablePopup(cableEl) {
     const route = routerMod.getRoute(routeId);
     if (route) {
       const currentZone = route.zone || 'all';
-      const activeBtn = cablePopupBtns.querySelector(`.cable-popup__btn--${currentZone}`);
+      const btns = cablePopupBtns.querySelectorAll('.cable-popup__btn');
+      const zoneKeys = splits.getCount() >= 2
+        ? ['all', 'low', 'mid', 'high']
+        : splits.getCount() >= 1
+          ? ['all', 'low', 'high']
+          : ['all'];
+      const idx = zoneKeys.indexOf(currentZone);
+      const activeBtn = idx >= 0 ? btns[idx] : null;
       if (activeBtn) activeBtn.classList.add('cable-popup__btn--active');
     }
   });

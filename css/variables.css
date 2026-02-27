@@ -50,9 +50,9 @@
 
   /* Keyboard */
   --key-white:        #d4d4dc;
-  --key-white-active: var(--accent-cyan);
+  --key-white-active: #b03060;
   --key-black:        #1a1a28;
-  --key-black-active: var(--accent-cyan);
+  --key-black-active: #b03060;
   --key-border:       #2a2a3a;
 
   /* Spacing (4px base) */

@@ -1,6 +1,6 @@
 .app {
   display: grid;
-  grid-template-rows: 56px 1fr 140px 32px;
+  grid-template-rows: 56px 1fr 170px 32px;
   height: 100vh;
   width: 100vw;
   overflow: hidden;
@@ -83,7 +83,7 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-4);
-  padding: var(--space-3) var(--space-6) 0;
+  padding: var(--space-2) var(--space-6) 0;
   flex-shrink: 0;
 }
 
@@ -164,7 +164,7 @@
 }
 
 @media (max-height: 600px) {
-  .app { grid-template-rows: 48px 1fr 0px 28px; }
+  .app { grid-template-rows: 48px 1fr 0 28px; }
   .keyboard-section { display: none; }
 }
 

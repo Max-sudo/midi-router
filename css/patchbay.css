@@ -272,25 +272,23 @@
   opacity: 0.5;
 }
 
-/* Cable zone popup */
+/* Cable zone popup — color set dynamically via --popup-color */
 .cable-popup {
   position: fixed;
   z-index: 50;
   pointer-events: none;
+  --popup-color: var(--accent-cyan);
 }
 
 .cable-popup__buttons {
   pointer-events: auto;
-}
-
-.cable-popup__buttons {
   display: flex;
   gap: 4px;
   background: var(--bg-elevated);
-  border: 1px solid var(--border-default);
+  border: 1px solid color-mix(in srgb, var(--popup-color) 30%, transparent);
   border-radius: var(--radius-lg);
   padding: 4px;
-  box-shadow: var(--shadow-lg), 0 0 20px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-lg), 0 0 16px color-mix(in srgb, var(--popup-color) 15%, transparent);
   backdrop-filter: blur(12px);
 }
 
@@ -309,35 +307,14 @@
 }
 
 .cable-popup__btn:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
+  background: color-mix(in srgb, var(--popup-color) 12%, transparent);
+  color: var(--popup-color);
 }
 
 .cable-popup__btn--active {
-  background: rgba(0, 240, 255, 0.12);
-  color: var(--accent-cyan);
-  border-color: rgba(0, 240, 255, 0.25);
-}
-
-.cable-popup__btn--low:hover,
-.cable-popup__btn--low.cable-popup__btn--active {
-  color: #00f0ff;
-  border-color: rgba(0, 240, 255, 0.25);
-  background: rgba(0, 240, 255, 0.12);
-}
-
-.cable-popup__btn--mid:hover,
-.cable-popup__btn--mid.cable-popup__btn--active {
-  color: #bf5af2;
-  border-color: rgba(191, 90, 242, 0.25);
-  background: rgba(191, 90, 242, 0.12);
-}
-
-.cable-popup__btn--high:hover,
-.cable-popup__btn--high.cable-popup__btn--active {
-  color: #ff9f0a;
-  border-color: rgba(255, 159, 10, 0.25);
-  background: rgba(255, 159, 10, 0.12);
+  background: color-mix(in srgb, var(--popup-color) 12%, transparent);
+  color: var(--popup-color);
+  border-color: color-mix(in srgb, var(--popup-color) 25%, transparent);
 }
 
 /* Empty state */

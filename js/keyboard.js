@@ -10,9 +10,9 @@ const LAST_NOTE  = 108;
 
 // Key layout constants
 const WHITE_KEY_W = 18;
-const WHITE_KEY_H = 80;
+const WHITE_KEY_H = 100;
 const BLACK_KEY_W = 12;
-const BLACK_KEY_H = 50;
+const BLACK_KEY_H = 62;
 
 let svgEl = null;
 let svgWidth = 0;
@@ -293,13 +293,13 @@ function xToNote(e) {
 // ── Note highlight ─────────────────────────────────────────────────
 function onMidiMessage({ data, msgType }) {
   if (msgType === 'noteon' && data[2] > 0) {
-    highlightNote(data[1], '#00f0ff');
+    highlightNote(data[1], '#b03060');
   } else if (msgType === 'noteoff' || (msgType === 'noteon' && data[2] === 0)) {
-    unhighlightNote(data[1], '#00f0ff');
+    unhighlightNote(data[1], '#b03060');
   }
 }
 
-export function highlightNote(note, color = '#00f0ff') {
+export function highlightNote(note, color = '#b03060') {
   const el = keyElements.get(note);
   if (!el) return;
   if (!activeNotes.has(note)) activeNotes.set(note, new Set());
@@ -308,7 +308,7 @@ export function highlightNote(note, color = '#00f0ff') {
   el.classList.add('keyboard__key--active');
 }
 
-export function unhighlightNote(note, color = '#00f0ff') {
+export function unhighlightNote(note, color = '#b03060') {
   const el = keyElements.get(note);
   if (!el) return;
   const colors = activeNotes.get(note);
