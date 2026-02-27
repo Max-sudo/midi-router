@@ -1,0 +1,131 @@
+/* Cable activity pulse */
+@keyframes cable-pulse {
+  0%   { stroke-opacity: 1; filter: drop-shadow(0 0 6px currentColor); }
+  100% { stroke-opacity: 0.5; filter: drop-shadow(0 0 0px currentColor); }
+}
+
+.cable--active .cable__line {
+  animation: cable-pulse 150ms ease-out;
+}
+
+.cable--active .cable__glow {
+  opacity: 0.5;
+  transition: opacity 150ms ease-out;
+}
+
+/* Cable glow breathing (selected cable) */
+@keyframes glow-breathe {
+  0%, 100% { opacity: 0.25; }
+  50%      { opacity: 0.5; }
+}
+
+.cable--selected .cable__glow {
+  animation: glow-breathe 2s ease-in-out infinite;
+}
+
+/* Cable draw-in on creation */
+@keyframes cable-draw {
+  from { stroke-dashoffset: 1000; }
+  to   { stroke-dashoffset: 0; }
+}
+
+.cable--new .cable__line {
+  stroke-dasharray: 1000;
+  animation: cable-draw 400ms ease-out forwards;
+}
+
+/* Key press glow */
+@keyframes key-glow {
+  0%   { filter: drop-shadow(0 0 8px currentColor); }
+  100% { filter: drop-shadow(0 0 2px currentColor); }
+}
+
+.key--active {
+  animation: key-glow 100ms ease-out forwards;
+}
+
+/* Port activity pulse */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 6px var(--accent-cyan); }
+  50%      { box-shadow: 0 0 14px var(--accent-cyan); }
+}
+
+/* Toast slide-up */
+@keyframes slide-up {
+  from { transform: translateY(16px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+.toast {
+  animation: slide-up 300ms ease-out;
+}
+
+/* Toast fade-out */
+@keyframes fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; transform: translateY(-8px); }
+}
+
+.toast--exiting {
+  animation: fade-out 200ms ease-in forwards;
+}
+
+/* Modal backdrop fade */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.modal {
+  animation: fade-in 150ms ease-out;
+}
+
+/* Route editor slide-in */
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+.route-editor {
+  position: fixed;
+  top: 56px;
+  right: 0;
+  bottom: 32px;
+  width: 300px;
+  background: var(--bg-surface);
+  border-left: 1px solid var(--border-default);
+  box-shadow: var(--shadow-lg);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  animation: slide-in-right 200ms ease-out;
+}
+
+.route-editor__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.route-editor__title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+}
+
+.route-editor__body {
+  flex: 1;
+  padding: var(--space-4);
+  overflow-y: auto;
+}
+
+.route-editor__footer {
+  padding: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.route-editor__footer .btn {
+  width: 100%;
+}

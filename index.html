@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MIDI Router</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/patchbay.css">
+  <link rel="stylesheet" href="css/keyboard.css">
+  <link rel="stylesheet" href="css/animations.css">
+</head>
+<body>
+  <div class="app" id="app">
+
+    <!-- Header -->
+    <header class="header">
+      <div class="header__brand">
+        <h1 class="header__title">MIDI Router</h1>
+      </div>
+      <div class="header__controls">
+        <div class="preset-bar">
+          <select class="dropdown preset-bar__dropdown" id="preset-select">
+            <option value="" disabled selected>No presets</option>
+          </select>
+          <button class="btn btn--primary preset-bar__save" id="preset-save">Save</button>
+          <button class="btn btn--danger preset-bar__delete" id="preset-delete">Delete</button>
+          <div class="preset-bar__divider"></div>
+          <button class="btn btn--ghost" id="preset-export" title="Export presets">Export</button>
+          <button class="btn btn--ghost" id="preset-import" title="Import presets">Import</button>
+          <input type="file" id="preset-import-file" accept=".json" hidden>
+          <div class="preset-bar__divider"></div>
+          <button class="btn btn--ghost btn--clear" id="clear-routes" title="Remove all connections">Clear All</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Patch Bay -->
+    <main class="patchbay" id="patchbay">
+      <div class="port-column port-column--inputs" id="inputs-column">
+        <div class="port-column__header">Inputs</div>
+      </div>
+
+      <div class="patchbay__canvas-wrapper">
+        <div class="patchbay__empty" id="patchbay-empty">
+          Click an input to activate it, then click outputs to connect
+        </div>
+        <div class="patchbay__hint" id="patchbay-hint" hidden>Click a cable to edit &middot; Drag a cable to the keyboard to assign a zone</div>
+      </div>
+
+      <div class="port-column port-column--outputs" id="outputs-column">
+        <div class="port-column__header">Outputs</div>
+      </div>
+
+      <svg class="connection-svg" id="connection-svg"
+           xmlns="http://www.w3.org/2000/svg">
+      </svg>
+    </main>
+
+    <!-- Keyboard Visualizer -->
+    <section class="keyboard-section">
+      <div class="split-controls" id="split-controls">
+        <button class="split-controls__btn" id="split-remove" title="Remove a split point">&minus;</button>
+        <span class="split-controls__label" id="split-label">No splits</span>
+        <button class="split-controls__btn" id="split-add" title="Add a split point">+</button>
+      </div>
+      <div class="keyboard-container" id="keyboard-container"></div>
+    </section>
+
+    <!-- Status Bar -->
+    <footer class="status-bar" id="status-bar">
+      <div class="status-bar__item">
+        <span class="status-bar__dot" id="midi-status-dot"></span>
+        <span id="midi-status-text">Initializing...</span>
+      </div>
+      <div class="status-bar__item">
+        <span>Routes:</span>
+        <span class="badge" id="route-count">0</span>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- Route Editor (hidden by default) -->
+  <aside class="route-editor" id="route-editor" hidden>
+    <div class="route-editor__header">
+      <span class="route-editor__title" id="route-editor-title">Edit Route</span>
+      <button class="btn btn--icon route-editor__close" id="route-editor-close">&times;</button>
+    </div>
+    <div class="route-editor__body">
+      <div class="field">
+        <label class="field__label">Zone</label>
+        <select class="dropdown" id="route-zone"></select>
+      </div>
+      <div class="field" id="route-range-field">
+        <label class="field__label">Note Range</label>
+        <div class="field__row">
+          <input type="number" class="field__input field__input--narrow" id="route-note-low" min="0" max="127" value="0">
+          <span class="field__separator">to</span>
+          <input type="number" class="field__input field__input--narrow" id="route-note-high" min="0" max="127" value="127">
+        </div>
+        <button class="btn btn--ghost field__action" id="route-select-range">Select on keyboard</button>
+      </div>
+      <div class="field">
+        <label class="field__label">Input Channel</label>
+        <select class="dropdown" id="route-channel-in">
+          <option value="">All channels</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="field__label">Output Channel</label>
+        <select class="dropdown" id="route-channel-out">
+          <option value="">Pass-through</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="field__label">Message Types</label>
+        <div class="field--toggles">
+          <label class="toggle"><input type="checkbox" id="route-pass-cc" checked><span>CC</span></label>
+          <label class="toggle"><input type="checkbox" id="route-pass-pb" checked><span>Pitch Bend</span></label>
+          <label class="toggle"><input type="checkbox" id="route-pass-pc" checked><span>Program Change</span></label>
+          <label class="toggle"><input type="checkbox" id="route-pass-at" checked><span>Aftertouch</span></label>
+        </div>
+      </div>
+    </div>
+    <div class="route-editor__footer">
+      <button class="btn btn--danger" id="route-delete">Delete Route</button>
+    </div>
+  </aside>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Modal -->
+  <div class="modal" id="modal" hidden>
+    <div class="modal__backdrop" id="modal-backdrop"></div>
+    <div class="modal__content" id="modal-content"></div>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

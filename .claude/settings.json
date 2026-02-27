@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python *)",
+      "Bash(pyinstaller *)",
+      "Bash(pip *)",
+      "Bash(git *)",
+      "Bash(ls *)",
+      "Bash(mkdir *)",
+      "WebSearch",
+      "WebFetch"
+    ]
+  }
+}

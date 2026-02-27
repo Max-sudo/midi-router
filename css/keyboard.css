@@ -1,0 +1,91 @@
+.keyboard-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.keyboard__key--white {
+  fill: var(--key-white);
+  stroke: var(--key-border);
+  stroke-width: 0.5;
+}
+
+.keyboard__key--black {
+  fill: var(--key-black);
+  stroke: var(--key-border);
+  stroke-width: 0.5;
+}
+
+.keyboard__key--active {
+  transition: none;
+}
+
+.keyboard__key--white:not(.keyboard__key--active) {
+  transition: fill 150ms ease-out;
+}
+
+.keyboard__key--black:not(.keyboard__key--active) {
+  transition: fill 150ms ease-out;
+}
+
+.keyboard__range-overlay {
+  pointer-events: none;
+}
+
+/* Split markers */
+.keyboard__split-line {
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+  cursor: ew-resize;
+  pointer-events: stroke;
+}
+
+.keyboard__split-line--1 {
+  stroke: #00f0ff;
+}
+
+.keyboard__split-line--2 {
+  stroke: #ff9f0a;
+}
+
+.keyboard__split-label {
+  fill: var(--text-secondary);
+  font-family: 'JetBrains Mono', monospace;
+  pointer-events: all;
+  cursor: ew-resize;
+  user-select: none;
+}
+
+.keyboard__split-label--1 {
+  fill: #00f0ff;
+}
+
+.keyboard__split-label--2 {
+  fill: #ff9f0a;
+}
+
+/* Zone background overlays */
+.keyboard__zone {
+  pointer-events: none;
+}
+
+/* Drop target highlight when dragging cable over keyboard */
+.keyboard-container--drop-target {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: -2px;
+  background: rgba(0, 240, 255, 0.03);
+}
+
+.keyboard__zone--drop-hover {
+  opacity: 1 !important;
+  transition: opacity 150ms ease;
+}
+
+.keyboard--selecting {
+  cursor: crosshair;
+}
+
+.keyboard--selecting .keyboard__key--white,
+.keyboard--selecting .keyboard__key--black {
+  cursor: crosshair;
+}

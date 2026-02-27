@@ -1,0 +1,258 @@
+// ── Router: route CRUD, message filtering, channel remapping ───────
+import { bus, uid, nextCableColor, midiStatusToType, midiChannel } from './utils.js';
+import * as midi from './midi.js';
+import * as patchbay from './patchbay.js';
+import * as splits from './splits.js';
+
+const routes = new Map(); // id → route object
+
+// ── Route model ────────────────────────────────────────────────────
+function createRoute(inputId, outputId, overrides = {}) {
+  return {
+    id: uid(),
+    inputId,
+    outputId,
+    zone: 'all',        // 'all' | 'low' | 'mid' | 'high' | 'custom'
+    noteLow:  0,
+    noteHigh: 127,
+    channelIn:  null,    // null = all channels
+    channelOut: null,    // null = pass-through
+    passCC: true,
+    passPitchBend: true,
+    passProgramChange: true,
+    passAftertouch: true,
+    enabled: true,
+    color: nextCableColor(),
+    ...overrides,
+  };
+}
+
+// ── Effective note range (resolves zone → actual numbers) ──────────
+function effectiveRange(route) {
+  if (route.zone === 'custom' || route.zone === 'all') {
+    return { noteLow: route.noteLow, noteHigh: route.noteHigh };
+  }
+  return splits.getZoneRange(route.zone);
+}
+
+// ── CRUD ───────────────────────────────────────────────────────────
+export function addRoute(inputId, outputId, overrides = {}) {
+  const route = createRoute(inputId, outputId, overrides);
+  routes.set(route.id, route);
+  patchbay.addCable(route.id, inputId, outputId, route.color);
+  emitCountChanged();
+  ensureListening(inputId);
+  bus.emit('route:added', route);
+  return route;
+}
+
+export function removeRoute(routeId) {
+  const route = routes.get(routeId);
+  if (!route) return;
+  routes.delete(routeId);
+  patchbay.removeCable(routeId);
+  emitCountChanged();
+  cleanupListening(route.inputId);
+  bus.emit('route:removed', route);
+}
+
+export function updateRoute(routeId, updates) {
+  const route = routes.get(routeId);
+  if (!route) return;
+  Object.assign(route, updates);
+  bus.emit('route:updated', route);
+}
+
+export function getRoute(routeId) {
+  return routes.get(routeId);
+}
+
+export function getAllRoutes() {
+  return [...routes.values()];
+}
+
+export function findRouteByPorts(inputId, outputId) {
+  return [...routes.values()].find(r => r.inputId === inputId && r.outputId === outputId) || null;
+}
+
+export function clearAllRoutes() {
+  for (const id of [...routes.keys()]) {
+    removeRoute(id);
+  }
+}
+
+// ── Message handling ───────────────────────────────────────────────
+function handleMessage(inputId, data, timestamp) {
+  const status  = data[0];
+  const msgType = midiStatusToType(status);
+  const channel = midiChannel(status);
+
+  // Flash input LED
+  patchbay.flashInputLED(inputId);
+
+  // Emit for keyboard visualizer
+  bus.emit('midi:message', { inputId, data, msgType, channel, timestamp });
+
+  for (const route of routes.values()) {
+    if (!route.enabled) continue;
+    if (route.inputId !== inputId) continue;
+
+    // Channel filter
+    if (route.channelIn !== null && channel !== route.channelIn) continue;
+
+    // Message type filter
+    if (msgType === 'cc'             && !route.passCC) continue;
+    if (msgType === 'pitchbend'      && !route.passPitchBend) continue;
+    if (msgType === 'programchange'  && !route.passProgramChange) continue;
+    if ((msgType === 'aftertouch' || msgType === 'channelpressure') && !route.passAftertouch) continue;
+
+    // Note range filter — use effective range (resolves zone dynamically)
+    if ((msgType === 'noteon' || msgType === 'noteoff' || msgType === 'aftertouch') && data.length >= 2) {
+      const note = data[1];
+      const { noteLow, noteHigh } = effectiveRange(route);
+      if (note < noteLow || note > noteHigh) continue;
+    }
+
+    // Build output data (possibly with channel remap)
+    let outData = data;
+    if (route.channelOut !== null && channel !== route.channelOut) {
+      outData = new Uint8Array(data);
+      outData[0] = (status & 0xF0) | (route.channelOut - 1);
+    }
+
+    midi.sendToOutput(route.outputId, outData);
+    patchbay.flashCable(route.id);
+    patchbay.flashOutputLED(route.outputId);
+    bus.emit('midi:message-routed', { routeId: route.id, inputId, outputId: route.outputId, data: outData, msgType });
+  }
+}
+
+// ── Input listener management ──────────────────────────────────────
+const listeningInputs = new Set();
+
+function ensureListening(inputId) {
+  if (listeningInputs.has(inputId)) return;
+  midi.listenToInput(inputId, handleMessage);
+  listeningInputs.add(inputId);
+}
+
+function cleanupListening(inputId) {
+  // Only stop if no remaining routes use this input
+  const stillUsed = [...routes.values()].some(r => r.inputId === inputId);
+  if (!stillUsed) {
+    midi.stopListeningToInput(inputId);
+    listeningInputs.delete(inputId);
+  }
+}
+
+// ── Helpers ────────────────────────────────────────────────────────
+function emitCountChanged() {
+  bus.emit('routes:count-changed', routes.size);
+}
+
+// ── Serialisation (for presets) ────────────────────────────────────
+export function serialiseRoutes() {
+  return getAllRoutes().map(r => ({
+    inputId:    r.inputId,
+    outputId:   r.outputId,
+    zone:       r.zone,
+    noteLow:    r.noteLow,
+    noteHigh:   r.noteHigh,
+    channelIn:  r.channelIn,
+    channelOut: r.channelOut,
+    passCC:     r.passCC,
+    passPitchBend:     r.passPitchBend,
+    passProgramChange: r.passProgramChange,
+    passAftertouch:    r.passAftertouch,
+    enabled:    r.enabled,
+    color:      r.color,
+    // Store names for fuzzy restore
+    inputName:  getDeviceName(r.inputId, 'input'),
+    outputName: getDeviceName(r.outputId, 'output'),
+  }));
+}
+
+export function restoreRoutes(serialised) {
+  clearAllRoutes();
+  const devices = midi.getDevices();
+  for (const s of serialised) {
+    const inputId  = resolveDeviceId(s.inputId, s.inputName, devices.inputs);
+    const outputId = resolveDeviceId(s.outputId, s.outputName, devices.outputs);
+    if (inputId && outputId) {
+      addRoute(inputId, outputId, {
+        zone:       s.zone || 'all',
+        noteLow:    s.noteLow,
+        noteHigh:   s.noteHigh,
+        channelIn:  s.channelIn,
+        channelOut: s.channelOut,
+        passCC:     s.passCC,
+        passPitchBend:     s.passPitchBend,
+        passProgramChange: s.passProgramChange,
+        passAftertouch:    s.passAftertouch,
+        enabled:    s.enabled,
+        color:      s.color,
+      });
+    }
+  }
+}
+
+function getDeviceName(deviceId, type) {
+  const devices = midi.getDevices();
+  const list = type === 'input' ? devices.inputs : devices.outputs;
+  const d = list.find(d => d.id === deviceId);
+  return d ? d.name : '';
+}
+
+// Three-tier resolution: exact ID → exact name → partial name
+function resolveDeviceId(savedId, savedName, deviceList) {
+  // 1. Exact ID match
+  if (deviceList.find(d => d.id === savedId)) return savedId;
+  // 2. Exact name match
+  const byName = deviceList.find(d => d.name === savedName);
+  if (byName) return byName.id;
+  // 3. Partial name match
+  if (savedName) {
+    const partial = deviceList.find(d =>
+      d.name.includes(savedName) || savedName.includes(d.name)
+    );
+    if (partial) return partial.id;
+  }
+  return null;
+}
+
+// ── Init ───────────────────────────────────────────────────────────
+export function init() {
+  // Connect / disconnect from patchbay clicks
+  bus.on('patchbay:connect', ({ inputId, outputId }) => {
+    addRoute(inputId, outputId);
+  });
+
+  bus.on('patchbay:disconnect', ({ routeId }) => {
+    removeRoute(routeId);
+  });
+
+  // Assign zone from cable drag-to-keyboard
+  bus.on('patchbay:assign-zone', ({ routeId, zone, noteLow, noteHigh }) => {
+    updateRoute(routeId, { zone, noteLow, noteHigh });
+    const label = zone === 'all' ? 'full range' : `${zone} zone`;
+    bus.emit('toast', `Route assigned to ${label}`);
+  });
+
+  // When splits change, update noteLow/noteHigh on all zone-bound routes
+  bus.on('splits:changed', () => {
+    for (const route of routes.values()) {
+      if (route.zone === 'all' || route.zone === 'custom') continue;
+      const range = splits.getZoneRange(route.zone);
+      route.noteLow  = range.noteLow;
+      route.noteHigh = range.noteHigh;
+      bus.emit('route:updated', route);
+    }
+  });
+
+  // When devices change, re-listen active inputs
+  bus.on('patchbay:ports-updated', () => {
+    for (const inputId of listeningInputs) {
+      midi.listenToInput(inputId, handleMessage);
+    }
+  });
+}

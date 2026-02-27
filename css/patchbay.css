@@ -1,0 +1,288 @@
+/* Port columns */
+.port-column {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-4) var(--space-3);
+  gap: var(--space-1);
+  overflow-y: auto;
+  background: var(--bg-surface);
+  position: relative;
+  z-index: 6;
+}
+
+.port-column--inputs {
+  border-right: 1px solid var(--border-subtle);
+}
+
+.port-column--outputs {
+  border-left: 1px solid var(--border-subtle);
+}
+
+.port-column__header {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-tertiary);
+  padding: 0 var(--space-3) var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: var(--space-2);
+}
+
+/* Port node */
+.port-node {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-3);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+  border: 1px solid transparent;
+  user-select: none;
+}
+
+.port-node:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-subtle);
+}
+
+.port-column--inputs .port-node {
+  flex-direction: row;
+  justify-content: flex-end;
+}
+
+.port-column--outputs .port-node {
+  flex-direction: row;
+}
+
+/* Activated (selected) state */
+.port-node--activated {
+  background: rgba(0, 240, 255, 0.08);
+  border-color: var(--accent-cyan);
+  box-shadow: inset 0 0 12px rgba(0, 240, 255, 0.06), var(--shadow-glow-cyan);
+}
+
+.port-node--activated .port-node__jack {
+  border-color: var(--accent-cyan);
+  box-shadow: var(--shadow-glow-cyan);
+}
+
+.port-node--activated .port-node__jack::after {
+  background: var(--accent-cyan);
+}
+
+.port-node--activated .port-node__name {
+  color: var(--accent-cyan);
+}
+
+/* Drop target highlight on outputs when an input is activated */
+.port-node--target {
+  border-color: rgba(0, 240, 255, 0.15);
+}
+
+.port-node--target:hover {
+  background: rgba(0, 240, 255, 0.1);
+  border-color: var(--accent-cyan);
+  box-shadow: inset 0 0 8px rgba(0, 240, 255, 0.04);
+}
+
+/* Already-connected output (click to disconnect) */
+.port-node--connected {
+  background: rgba(48, 209, 88, 0.08);
+  border-color: var(--accent-green);
+}
+
+.port-node--connected .port-node__jack {
+  border-color: var(--accent-green);
+  box-shadow: 0 0 8px rgba(48, 209, 88, 0.3);
+}
+
+.port-node--connected .port-node__jack::after {
+  background: var(--accent-green);
+}
+
+.port-node--connected .port-node__name {
+  color: var(--accent-green);
+}
+
+.port-node--connected:hover {
+  background: rgba(255, 45, 85, 0.08);
+  border-color: var(--accent-magenta);
+}
+
+.port-node--connected:hover .port-node__jack {
+  border-color: var(--accent-magenta);
+  box-shadow: 0 0 8px rgba(255, 45, 85, 0.3);
+}
+
+.port-node--connected:hover .port-node__jack::after {
+  background: var(--accent-magenta);
+}
+
+.port-node--connected:hover .port-node__name {
+  color: var(--accent-magenta);
+}
+
+.port-node--target:hover .port-node__jack {
+  border-color: var(--accent-cyan);
+  box-shadow: var(--shadow-glow-cyan);
+}
+
+.port-node--target:hover .port-node__name {
+  color: var(--accent-cyan);
+}
+
+/* Port label wrapper */
+.port-node__label {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.3;
+  min-width: 0;
+}
+
+.port-column--inputs .port-node__label {
+  align-items: flex-end;
+  text-align: right;
+}
+
+/* Device name */
+.port-node__name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+  letter-spacing: 0.01em;
+  transition: color var(--transition-fast);
+}
+
+/* Manufacturer subtitle */
+.port-node__manufacturer {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  font-weight: var(--font-weight-normal);
+  letter-spacing: 0.02em;
+}
+
+/* Port jack */
+.port-node__jack {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--border-strong);
+  background: var(--bg-base);
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+}
+
+.port-node__jack::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--text-tertiary);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  transition: background var(--transition-fast);
+}
+
+.port-node:hover .port-node__jack {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+}
+
+.port-node:hover .port-node__jack::after {
+  background: var(--accent-cyan);
+}
+
+/* Activity LED */
+.port-node__led {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: transparent;
+  flex-shrink: 0;
+  transition: background 150ms ease-out, box-shadow 150ms ease-out;
+}
+
+.port-node__led--active {
+  background: var(--accent-green);
+  box-shadow: 0 0 6px var(--accent-green), 0 0 12px rgba(48, 209, 88, 0.4);
+  transition: none;
+}
+
+/* SVG Cables */
+.cable__glow {
+  fill: none;
+  stroke-width: 6;
+  opacity: 0.25;
+  filter: blur(4px);
+}
+
+.cable__line {
+  fill: none;
+  stroke-width: 2.5;
+  opacity: 0.75;
+  stroke-linecap: round;
+}
+
+.cable--active .cable__line {
+  opacity: 1;
+  stroke-width: 3.5;
+  transition: opacity 50ms, stroke-width 50ms;
+}
+
+.cable--selected .cable__line {
+  opacity: 1;
+  stroke-width: 3;
+}
+
+.cable--disabled .cable__line,
+.cable--disabled .cable__glow {
+  opacity: 0.15;
+}
+
+/* Temp cable (kept for compat) */
+.cable__temp {
+  fill: none;
+  stroke-linecap: round;
+}
+
+/* Hint text at bottom of canvas */
+.patchbay__hint {
+  position: absolute;
+  bottom: var(--space-2);
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  letter-spacing: 0.03em;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.6;
+}
+
+/* Cable dragging state */
+.cable--dragging {
+  opacity: 0.5;
+}
+
+/* Empty state */
+.patchbay__empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
+  pointer-events: none;
+  text-align: center;
+  padding: var(--space-6);
+  letter-spacing: 0.02em;
+}
