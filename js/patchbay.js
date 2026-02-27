@@ -447,7 +447,7 @@ function initCablePopup() {
   svg.addEventListener('pointerenter', (e) => {
     const cableEl = e.target.closest('.cable');
     if (!cableEl) return;
-    showCablePopup(cableEl);
+    showCablePopup(cableEl, e.clientX, e.clientY);
   }, true);
 
   svg.addEventListener('pointerleave', (e) => {
@@ -466,7 +466,7 @@ function initCablePopup() {
   });
 }
 
-function showCablePopup(cableEl) {
+function showCablePopup(cableEl, pointerX, pointerY) {
   clearHideTimer();
   const routeId = cableEl.dataset.routeId;
   const splitCount = splits.getCount();
@@ -526,19 +526,10 @@ function showCablePopup(cableEl) {
     }
   });
 
-  // Position popup near the cable midpoint
-  const paths = cableEl.querySelectorAll('path');
-  const line = paths[paths.length - 1]; // cable__line
-  if (line) {
-    const len = line.getTotalLength();
-    const mid = line.getPointAtLength(len / 2);
-    const svgRect = svg.getBoundingClientRect();
-    const x = svgRect.left + mid.x;
-    const y = svgRect.top + mid.y;
-    cablePopup.style.left = `${x}px`;
-    cablePopup.style.top  = `${y - 40}px`;
-    cablePopup.style.transform = 'translateX(-50%)';
-  }
+  // Position popup at the pointer location
+  cablePopup.style.left = `${pointerX}px`;
+  cablePopup.style.top  = `${pointerY - 40}px`;
+  cablePopup.style.transform = 'translateX(-50%)';
 
   cablePopup.hidden = false;
 }

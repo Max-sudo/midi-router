@@ -7,6 +7,7 @@ import * as keyboard from './keyboard.js';
 import * as routeEditor from './route-editor.js';
 import * as presets from './presets.js';
 import * as splits from './splits.js';
+import * as pcEditor from './pc-editor.js';
 
 // ── DOM references ─────────────────────────────────────────────────
 const statusDot      = $('#midi-status-dot');
@@ -27,6 +28,7 @@ async function boot() {
   router.init();
   keyboard.init();
   routeEditor.init();
+  pcEditor.init();
   presets.init();
 
   // 3. Web MIDI (triggers midi:ready → modules react)

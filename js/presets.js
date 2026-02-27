@@ -2,6 +2,8 @@
 import { bus, $ } from './utils.js';
 import * as router from './router.js';
 import * as splits from './splits.js';
+import * as midi from './midi.js';
+import * as pcEditor from './pc-editor.js';
 
 const STORAGE_KEY = 'midi-router-presets';
 
@@ -69,6 +71,7 @@ function savePreset() {
   presets[trimmed] = {
     routes: router.serialiseRoutes(),
     splits: splits.serialise(),
+    programChanges: pcEditor.getProgramChanges(),
   };
   lastUsed = trimmed;
   saveToStorage();
@@ -97,14 +100,22 @@ function applyPreset(name) {
     splits.restore(preset.splits);
   }
   router.restoreRoutes(preset.routes || []);
+
+  // Restore program changes into the editor
+  pcEditor.setProgramChanges(preset.programChanges || []);
+
+  // Send program changes to MIDI outputs
+  sendProgramChanges(preset.programChanges || []);
+
   lastUsed = name;
   // Re-save preset with current route data (upgrades legacy presets with zone field)
   presets[name] = {
     routes: router.serialiseRoutes(),
     splits: splits.serialise(),
+    programChanges: pcEditor.getProgramChanges(),
   };
   saveToStorage();
-  console.log(`[Presets] Applied "${name}": ${(preset.routes || []).length} routes, splits: ${JSON.stringify(preset.splits || 'none')}`);
+  console.log(`[Presets] Applied "${name}": ${(preset.routes || []).length} routes, ${(preset.programChanges || []).length} PCs, splits: ${JSON.stringify(preset.splits || 'none')}`);
 }
 
 function autoRestore() {
@@ -151,6 +162,37 @@ function handleImportFile(e) {
   };
   reader.readAsText(file);
   importFile.value = ''; // allow re-import of same file
+}
+
+// ── Program Change sending ─────────────────────────────────────────
+function sendProgramChanges(list) {
+  if (!list || list.length === 0) return;
+  const devices = midi.getDevices();
+  for (const pc of list) {
+    const outputId = resolveOutputId(pc.outputId, pc.outputName, devices.outputs);
+    if (!outputId) {
+      console.warn(`[Presets] PC: output not found for "${pc.outputName}"`);
+      continue;
+    }
+    const channel = Math.max(1, Math.min(16, pc.channel || 1));
+    const program = Math.max(0, Math.min(127, pc.program || 0));
+    const data = new Uint8Array([0xC0 | (channel - 1), program]);
+    midi.sendToOutput(outputId, data);
+    console.log(`[Presets] Sent PC ${program} on Ch ${channel} to ${pc.outputName || outputId}`);
+  }
+}
+
+function resolveOutputId(savedId, savedName, deviceList) {
+  if (deviceList.find(d => d.id === savedId)) return savedId;
+  const byName = deviceList.find(d => d.name === savedName);
+  if (byName) return byName.id;
+  if (savedName) {
+    const partial = deviceList.find(d =>
+      d.name.includes(savedName) || savedName.includes(d.name)
+    );
+    if (partial) return partial.id;
+  }
+  return null;
 }
 
 // ── Toast helper ───────────────────────────────────────────────────

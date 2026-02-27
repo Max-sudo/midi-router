@@ -37,6 +37,8 @@
           <button class="btn btn--ghost" id="preset-import" title="Import presets">Import</button>
           <input type="file" id="preset-import-file" accept=".json" hidden>
           <div class="preset-bar__divider"></div>
+          <button class="btn btn--ghost" id="pc-editor-toggle" title="Program changes on preset load">Actions</button>
+          <div class="preset-bar__divider"></div>
           <button class="btn btn--ghost btn--clear" id="clear-routes" title="Remove all connections">Clear All</button>
         </div>
       </div>
@@ -132,6 +134,20 @@
     </div>
     <div class="route-editor__footer">
       <button class="btn btn--danger" id="route-delete">Delete Route</button>
+    </div>
+  </aside>
+
+  <!-- Program Change Editor (hidden by default) -->
+  <aside class="pc-editor" id="pc-editor" hidden>
+    <div class="pc-editor__header">
+      <span class="pc-editor__title">Preset Actions</span>
+      <button class="btn btn--icon pc-editor__close" id="pc-editor-close">&times;</button>
+    </div>
+    <div class="pc-editor__body" id="pc-editor-body">
+      <p class="pc-editor__empty" id="pc-editor-empty">No program changes configured.<br>Add one below to send MIDI scene recalls on preset load.</p>
+    </div>
+    <div class="pc-editor__footer">
+      <button class="btn btn--ghost" id="pc-add">+ Add Program Change</button>
     </div>
   </aside>
 
