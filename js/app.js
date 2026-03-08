@@ -1,5 +1,6 @@
-// ── MIDI Router – App Entry Point ──────────────────────────────────
+// ── Studio Tools – App Entry Point ─────────────────────────────────
 import { bus, $ } from './utils.js';
+import * as tabs from './tabs.js';
 import * as midi from './midi.js';
 import * as patchbay from './patchbay.js';
 import * as router from './router.js';
@@ -8,6 +9,8 @@ import * as routeEditor from './route-editor.js';
 import * as presets from './presets.js';
 import * as splits from './splits.js';
 import * as pcEditor from './pc-editor.js';
+import * as avsync from './avsync.js';
+import * as launchpad from './launchpad.js';
 
 // ── DOM references ─────────────────────────────────────────────────
 const statusDot      = $('#midi-status-dot');
@@ -23,12 +26,15 @@ async function boot() {
   bus.on('midi:devices-changed', onDevicesChanged);
 
   // 2. Init modules (they subscribe to bus events internally)
+  tabs.init();
   splits.init();
   patchbay.init();
   router.init();
   keyboard.init();
   routeEditor.init();
   pcEditor.init();
+  avsync.init();
+  launchpad.init();
   presets.init();
 
   // 3. Web MIDI (triggers midi:ready → modules react)

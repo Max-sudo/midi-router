@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MIDI Router</title>
+  <title>Studio Tools</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -22,11 +22,14 @@
 
     <!-- Header -->
     <header class="header">
-      <div class="header__brand">
-        <h1 class="header__title">MIDI Router</h1>
-      </div>
+      <nav class="header__tabs">
+        <button class="tab-btn tab-btn--active" data-tab="midi">MIDI Router</button>
+        <button class="tab-btn" data-tab="avsync">AV Sync</button>
+        <button class="tab-btn" data-tab="launchpad">Launchpad</button>
+      </nav>
       <div class="header__controls">
-        <div class="preset-bar">
+        <!-- MIDI Router controls -->
+        <div class="preset-bar tab-controls" id="midi-controls" data-tab="midi">
           <select class="dropdown preset-bar__dropdown" id="preset-select">
             <option value="" disabled selected>No presets</option>
           </select>
@@ -41,40 +44,61 @@
           <div class="preset-bar__divider"></div>
           <button class="btn btn--ghost btn--clear" id="clear-routes" title="Remove all connections">Clear All</button>
         </div>
+        <!-- AV Sync controls (placeholder) -->
+        <div class="tab-controls" id="avsync-controls" data-tab="avsync" hidden>
+          <button class="btn btn--ghost" id="avsync-reset">Reset</button>
+        </div>
+        <!-- Launchpad controls (placeholder) -->
+        <div class="tab-controls" id="launchpad-controls" data-tab="launchpad" hidden></div>
       </div>
     </header>
 
-    <!-- Patch Bay -->
-    <main class="patchbay" id="patchbay">
-      <div class="port-column port-column--inputs" id="inputs-column">
-        <div class="port-column__header">Inputs</div>
-      </div>
-
-      <div class="patchbay__canvas-wrapper">
-        <div class="patchbay__empty" id="patchbay-empty">
-          Click an input to activate it, then click outputs to connect
+    <!-- Tab: MIDI Router -->
+    <div class="tab-content" id="tab-midi">
+      <main class="patchbay" id="patchbay">
+        <div class="port-column port-column--inputs" id="inputs-column">
+          <div class="port-column__header">Inputs</div>
         </div>
-        <div class="patchbay__hint" id="patchbay-hint" hidden>Click a cable to edit &middot; Drag a cable to the keyboard to assign a zone</div>
-      </div>
 
-      <div class="port-column port-column--outputs" id="outputs-column">
-        <div class="port-column__header">Outputs</div>
-      </div>
+        <div class="patchbay__canvas-wrapper">
+          <div class="patchbay__empty" id="patchbay-empty">
+            Click an input to activate it, then click outputs to connect
+          </div>
+          <div class="patchbay__hint" id="patchbay-hint" hidden>Click a cable to edit &middot; Drag a cable to the keyboard to assign a zone</div>
+        </div>
 
-      <svg class="connection-svg" id="connection-svg"
-           xmlns="http://www.w3.org/2000/svg">
-      </svg>
-    </main>
+        <div class="port-column port-column--outputs" id="outputs-column">
+          <div class="port-column__header">Outputs</div>
+        </div>
 
-    <!-- Keyboard Visualizer -->
-    <section class="keyboard-section">
-      <div class="split-controls" id="split-controls">
-        <button class="split-controls__btn" id="split-remove" title="Remove a split point">&minus;</button>
-        <span class="split-controls__label" id="split-label">No splits</span>
-        <button class="split-controls__btn" id="split-add" title="Add a split point">+</button>
+        <svg class="connection-svg" id="connection-svg"
+             xmlns="http://www.w3.org/2000/svg">
+        </svg>
+      </main>
+
+      <section class="keyboard-section">
+        <div class="split-controls" id="split-controls">
+          <button class="split-controls__btn" id="split-remove" title="Remove a split point">&minus;</button>
+          <span class="split-controls__label" id="split-label">No splits</span>
+          <button class="split-controls__btn" id="split-add" title="Add a split point">+</button>
+        </div>
+        <div class="keyboard-container" id="keyboard-container"></div>
+      </section>
+    </div>
+
+    <!-- Tab: AV Sync -->
+    <div class="tab-content" id="tab-avsync" hidden>
+      <div class="avsync-panel" id="avsync-panel">
+        <!-- Built dynamically by js/avsync.js -->
       </div>
-      <div class="keyboard-container" id="keyboard-container"></div>
-    </section>
+    </div>
+
+    <!-- Tab: Launchpad -->
+    <div class="tab-content" id="tab-launchpad" hidden>
+      <div class="launchpad-panel" id="launchpad-panel">
+        <!-- Built dynamically by js/launchpad.js -->
+      </div>
+    </div>
 
     <!-- Status Bar -->
     <footer class="status-bar" id="status-bar">
