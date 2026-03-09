@@ -138,44 +138,7 @@ pre.chat-code code {
   white-space: pre;
 }
 
-/* ── Tool use indicator ─────────────────────────────────────────── */
-
-.chat-tool-use {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
-  animation: bubble-in 200ms ease;
-}
-
-.chat-tool-use__icon {
-  color: var(--accent-cyan);
-  display: flex;
-  align-items: center;
-  animation: tool-spin 1s ease-in-out infinite;
-}
-
-@keyframes tool-spin {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
-}
-
-.chat-tool-use__label {
-  font-weight: var(--font-weight-medium);
-  color: var(--text-secondary);
-}
-
-.chat-tool-use__detail {
-  font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
-  color: var(--text-tertiary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 400px;
-}
+/* ── Tool use indicator (removed — now just uses typing dots) ──── */
 
 /* ── Typing indicator ──────────────────────────────────────────── */
 
@@ -217,10 +180,9 @@ pre.chat-code code {
   display: flex;
   align-items: flex-end;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-6) var(--space-5);
-  max-width: 720px;
+  padding: var(--space-2) 0 var(--space-4);
   width: 100%;
-  margin: 0 auto;
+  flex-shrink: 0;
 }
 
 .chat-input-bar__input {

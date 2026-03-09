@@ -1,5 +1,6 @@
 // ── Home Tab – Chat Interface ─────────────────────────────────────
 import { bus, $, createElement } from './utils.js';
+import { addTab } from './tabs.js';
 
 const panel = $('#home-panel');
 
@@ -83,11 +84,11 @@ function buildUI() {
   // Assemble
   const chatContainer = createElement('div', { className: 'chat-container' });
   chatContainer.appendChild(hero);
+  chatContainer.appendChild(inputBar);
   chatContainer.appendChild(chatMessages);
   chatContainer.appendChild(typingIndicator);
 
   panel.appendChild(chatContainer);
-  panel.appendChild(inputBar);
 }
 
 function autoResize() {
@@ -113,6 +114,8 @@ function connectWS() {
       appendToAssistant(data.text);
     } else if (data.type === 'tool_use') {
       showToolUse(data.name, data.input);
+    } else if (data.type === 'create_tab') {
+      addTab(data.tab_id, data.label, data.html);
     } else if (data.type === 'done') {
       finishStreaming();
     } else if (data.type === 'error') {
@@ -173,43 +176,7 @@ function appendToAssistant(text) {
 }
 
 function showToolUse(name, input) {
-  // Finalize any in-progress assistant bubble
-  if (currentAssistantBubble && currentAssistantText) {
-    messages.push({ role: 'assistant', content: currentAssistantText });
-    currentAssistantBubble = null;
-    currentAssistantText = '';
-  }
-
-  const toolBubble = createElement('div', { className: 'chat-tool-use' });
-
-  const TOOL_LABELS = {
-    run_command: 'Running command',
-    read_file: 'Reading file',
-    write_file: 'Writing file',
-    edit_file: 'Editing file',
-    list_files: 'Listing files',
-  };
-
-  const label = TOOL_LABELS[name] || name;
-  let detail = '';
-
-  if (name === 'run_command') detail = input.command || '';
-  else if (name === 'read_file') detail = input.path || '';
-  else if (name === 'write_file') detail = input.path || '';
-  else if (name === 'edit_file') detail = input.path || '';
-  else if (name === 'list_files') detail = input.path || '.';
-
-  toolBubble.innerHTML = `
-    <span class="chat-tool-use__icon">
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <path d="M8.5 1.5l4 4-8.5 8.5h-4v-4l8.5-8.5z" stroke="currentColor" stroke-width="1.5" fill="none"/>
-      </svg>
-    </span>
-    <span class="chat-tool-use__label">${escapeHtml(label)}</span>
-    <span class="chat-tool-use__detail">${escapeHtml(detail)}</span>
-  `;
-
-  chatMessages.appendChild(toolBubble);
+  // Show the working indicator (replaces verbose tool text)
   typingIndicator.hidden = false;
   scrollToBottom();
 }

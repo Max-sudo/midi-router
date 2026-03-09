@@ -35,7 +35,27 @@ SYSTEM_PROMPT = (
     "- Warm but minimal. Think text message, not email."
 )
 
+# Callback for sending events to the chat WebSocket (set by server.py)
+_ws_send_event = None
+
+def set_ws_event_callback(cb):
+    global _ws_send_event
+    _ws_send_event = cb
+
 TOOLS = [
+    {
+        "name": "create_tab",
+        "description": "Create a new tab in the Studio Tools UI. The tab appears immediately in the browser. Use this instead of manually editing index.html to add tabs.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "tab_id": {"type": "string", "description": "Unique tab ID (lowercase, no spaces, e.g. 'weather')"},
+                "label": {"type": "string", "description": "Display label for the tab (e.g. 'Weather')"},
+                "html": {"type": "string", "description": "HTML content for the tab panel body"}
+            },
+            "required": ["tab_id", "label", "html"]
+        }
+    },
     {
         "name": "run_command",
         "description": "Run a shell command and return its output. Use for git, npm, listing files, etc. Commands run from the project root.",
@@ -101,7 +121,26 @@ TOOLS = [
 def _execute_tool(name: str, input: dict) -> str:
     """Execute a tool and return the result as a string."""
     try:
-        if name == "run_command":
+        if name == "create_tab":
+            tab_id = input["tab_id"]
+            label = input["label"]
+            html = input["html"]
+            # Send event to browser via WebSocket
+            if _ws_send_event:
+                import asyncio
+                try:
+                    loop = asyncio.get_event_loop()
+                    loop.create_task(_ws_send_event(json.dumps({
+                        "type": "create_tab",
+                        "tab_id": tab_id,
+                        "label": label,
+                        "html": html,
+                    })))
+                except Exception:
+                    pass
+            return f"Created tab '{label}' (id: {tab_id}). It's now visible in the browser."
+
+        elif name == "run_command":
             result = subprocess.run(
                 input["command"], shell=True, capture_output=True, text=True,
                 timeout=30, cwd=PROJECT_ROOT,

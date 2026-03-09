@@ -1042,3 +1042,20 @@
   0%, 100% { box-shadow: 0 0 0 2px rgba(0, 240, 255, 0.15); }
   50% { box-shadow: 0 0 0 2px rgba(0, 240, 255, 0.35); }
 }
+
+/* Max Tab */
+.max-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.max-text {
+  font-size: 12rem;
+  font-weight: 900;
+  color: var(--text-primary);
+  user-select: none;
+  line-height: 1;
+}

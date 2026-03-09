@@ -12,6 +12,7 @@ import * as pcEditor from './pc-editor.js';
 import * as avsync from './avsync.js';
 import * as launchpad from './launchpad.js';
 import * as home from './home.js';
+import { ScoresPanel } from './scores.js';
 
 // ── DOM references ─────────────────────────────────────────────────
 const statusDot      = $('#midi-status-dot');
@@ -37,6 +38,7 @@ async function boot() {
   pcEditor.init();
   avsync.init();
   launchpad.init();
+  new ScoresPanel();
   presets.init();
 
   // 3. Web MIDI (triggers midi:ready → modules react)

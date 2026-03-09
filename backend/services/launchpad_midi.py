@@ -238,13 +238,13 @@ def _on_midi_message(event, data=None):
 
     # Execute action if mapped
     if action:
+        # Update workspace LEDs immediately before executing (avoids lag)
+        if action.get("action_type") == "workspace":
+            _update_workspace_leds(note)
         print(f"[Launchpad] Executing: {action.get('action_type')} for pad {note} — {action.get('label', '')}", flush=True)
         result = launchpad_actions.execute(action)
         if result["success"]:
             print(f"[Launchpad] Action OK for pad {note}", flush=True)
-            # Highlight active workspace pad, dim the others
-            if action.get("action_type") == "workspace":
-                _update_workspace_leds(note)
         else:
             print(f"[Launchpad] Action FAILED for pad {note}: {result['error']}", flush=True)
 

@@ -48,6 +48,37 @@
   border-bottom-color: var(--accent-cyan);
 }
 
+.tab-btn--deletable {
+  position: relative;
+  padding-right: var(--space-8);
+}
+
+.tab-btn__close {
+  position: absolute;
+  right: var(--space-2);
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-full);
+  color: var(--text-tertiary);
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.tab-btn:hover .tab-btn__close {
+  opacity: 0.6;
+}
+
+.tab-btn__close:hover {
+  opacity: 1 !important;
+  background: rgba(255, 55, 95, 0.2);
+  color: #ff375f;
+}
+
 .header__controls {
   display: flex;
   align-items: center;

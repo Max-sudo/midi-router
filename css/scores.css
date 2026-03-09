@@ -1,0 +1,158 @@
+.scores-panel {
+  padding: 2rem;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.scores-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.scores-header h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+}
+
+.scores-header p {
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.scores-empty, .scores-error {
+  text-align: center;
+  padding: 3rem 1rem;
+}
+
+.scores-empty h2, .scores-error h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+}
+
+.scores-empty p, .scores-error p {
+  color: var(--text-secondary);
+  margin: 0.5rem 0;
+}
+
+.scores-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.score-card {
+  display: flex;
+  align-items: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+  transition: all 0.2s ease;
+}
+
+.score-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 2px 8px var(--shadow-light);
+}
+
+.score-rank {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--primary);
+  margin-right: 1rem;
+  min-width: 2rem;
+  text-align: center;
+}
+
+.score-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.score-teams {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-weight: 600;
+}
+
+.team {
+  color: var(--text-primary);
+  transition: color 0.2s ease;
+}
+
+.team.winner {
+  color: var(--success);
+}
+
+.vs {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 400;
+}
+
+.score-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.score {
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.sport-badge {
+  background: var(--primary);
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.score-status {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+@media (max-width: 600px) {
+  .scores-panel {
+    padding: 1rem;
+  }
+  
+  .score-card {
+    padding: 0.75rem;
+  }
+  
+  .score-rank {
+    font-size: 1rem;
+    margin-right: 0.75rem;
+    min-width: 1.5rem;
+  }
+  
+  .score-teams {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+  
+  .vs {
+    align-self: center;
+  }
+  
+  .score-result {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+}

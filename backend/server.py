@@ -204,6 +204,71 @@ def launchpad_app_icon(app_name: str):
                         headers={"Cache-Control": "public, max-age=86400"})
 
 
+@app.delete("/api/tabs/{tab_id}")
+def delete_tab(tab_id: str):
+    """Permanently remove a tab from index.html and its associated files."""
+    import re
+
+    # Core tabs cannot be deleted
+    core_tabs = {"home", "midi", "avsync", "launchpad"}
+    if tab_id in core_tabs:
+        raise HTTPException(status_code=400, detail="Cannot delete core tab")
+
+    project_root = Path(__file__).parent.parent
+    index_path = project_root / "index.html"
+
+    if not index_path.exists():
+        raise HTTPException(status_code=404, detail="index.html not found")
+
+    html = index_path.read_text()
+    original = html
+
+    # Remove tab button: <button class="tab-btn..." data-tab="tab_id">...</button>
+    html = re.sub(
+        rf'\s*<button\s+class="tab-btn[^"]*"\s+data-tab="{re.escape(tab_id)}"[^>]*>[^<]*</button>',
+        '', html
+    )
+
+    # Remove tab controls div: <div ... data-tab="tab_id" ...>...</div>
+    # Use non-greedy match for single-line controls
+    html = re.sub(
+        rf'\s*<div\s+[^>]*data-tab="{re.escape(tab_id)}"[^>]*>.*?</div>',
+        '', html, flags=re.DOTALL
+    )
+
+    # Remove tab content panel: <div class="tab-content" id="tab-{tab_id}" ...>...</div>
+    # These can be multi-line with nested content
+    html = re.sub(
+        rf'\s*<div\s+class="tab-content"\s+id="tab-{re.escape(tab_id)}"[^>]*>.*?</div>\s*(?=<div\s+class="tab-content"|</main>)',
+        '', html, flags=re.DOTALL
+    )
+
+    # Remove associated script tag if it exists
+    html = re.sub(
+        rf'\s*<script[^>]*src="[^"]*{re.escape(tab_id)}[^"]*"[^>]*></script>',
+        '', html
+    )
+
+    # Remove associated CSS link if it exists
+    html = re.sub(
+        rf'\s*<link[^>]*href="[^"]*{re.escape(tab_id)}[^"]*\.css"[^>]*>',
+        '', html
+    )
+
+    if html != original:
+        index_path.write_text(html)
+
+    # Remove JS and CSS files if they exist
+    removed_files = []
+    for pattern in [f"js/{tab_id}.js", f"css/{tab_id}.css"]:
+        f = project_root / pattern
+        if f.exists():
+            f.unlink()
+            removed_files.append(pattern)
+
+    return {"success": True, "removed_files": removed_files}
+
+
 @app.get("/api/browse")
 def browse_directory(path: str = "~"):
     """List directories for the folder picker."""
@@ -307,6 +372,13 @@ async def chat_ws(websocket: WebSocket):
                     "name": name,
                     "input": tool_input,
                 })
+
+            async def send_event(data: str):
+                await websocket.send_text(data)
+
+            # Let the chat service send events (like create_tab) to this WebSocket
+            from services.chat import set_ws_event_callback
+            set_ws_event_callback(send_event)
 
             await stream_chat(messages, send_chunk, on_tool_use=send_tool_use)
             await websocket.send_json({"type": "done"})
