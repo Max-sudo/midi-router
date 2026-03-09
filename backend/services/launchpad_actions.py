@@ -119,6 +119,8 @@ def execute(action: dict) -> dict:
             return _run_applescript(params.get("script", ""))
         elif action_type == "shell":
             return _run_shell(params.get("command", ""))
+        elif action_type == "workspace":
+            return _run_workspace(params)
         else:
             return {"success": False, "output": "", "error": f"Unknown action type: {action_type}"}
     except Exception as e:
@@ -237,3 +239,76 @@ def _run_shell(command: str) -> dict:
         "output": result.stdout.strip(),
         "error": result.stderr.strip() if result.returncode != 0 else "",
     }
+
+
+def _is_app_running(app_name: str) -> bool:
+    """Check if an app is currently running."""
+    result = _run_applescript(
+        f'tell application "System Events" to (name of processes) contains "{app_name}"'
+    )
+    return result.get("output", "").strip() == "true"
+
+
+def _run_workspace(params: dict) -> dict:
+    import time
+
+    desktop = params.get("desktop")
+    apps = params.get("apps", [])
+
+    if not desktop and not apps:
+        return {"success": False, "output": "", "error": "No desktop or apps configured"}
+
+    steps = []
+
+    # Switch to the target macOS Space/Desktop via Mission Control shortcut
+    # Requires: System Settings > Keyboard > Shortcuts > Mission Control >
+    #   "Switch to Desktop N" enabled (ctrl+1, ctrl+2, etc.)
+    # Must use key codes (not keystroke) for system-level shortcuts
+    _desktop_key_codes = {
+        1: 18, 2: 19, 3: 20, 4: 21, 5: 23, 6: 22, 7: 26, 8: 28, 9: 25, 10: 29,
+    }
+    if desktop:
+        desktop_num = int(desktop)
+        key_code = _desktop_key_codes.get(desktop_num)
+        if key_code:
+            script = f'tell application "System Events" to key code {key_code} using {{control down}}'
+            result = _run_applescript(script)
+            if result["success"]:
+                steps.append(f"switched to Desktop {desktop_num}")
+                time.sleep(0.5)
+            else:
+                steps.append(f"failed to switch desktop ({result['error']})")
+        else:
+            steps.append(f"desktop {desktop_num} not supported (max 10)")
+
+    # When desktop is set, ONLY switch Space — don't touch apps at all.
+    # Any app interaction (even checking windows) can cause macOS to
+    # switch back to the Space where that app's window lives.
+    # Apps should be pre-arranged on their Spaces; the pad just switches.
+    if not desktop:
+        # No desktop — just open/focus apps on the current Space
+        for app_entry in apps:
+            if isinstance(app_entry, dict):
+                name = app_entry.get("name", "")
+                path = app_entry.get("path", "")
+                if name == "Visual Studio Code" and path:
+                    folder = Path(path).name
+                    label = f"VS Code → {folder}"
+                    code_bin = "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"
+                    result = subprocess.run(
+                        [code_bin, "--new-window", path],
+                        capture_output=True, text=True, timeout=10,
+                    )
+                    ok = result.returncode == 0
+                else:
+                    label = name
+                    result = _open_app(name)
+                    ok = result["success"]
+            else:
+                label = app_entry
+                result = _open_app(app_entry)
+                ok = result.get("success", False) if isinstance(result, dict) else False
+
+            steps.append(f"opened {label}" if ok else f"failed: {label}")
+
+    return {"success": True, "output": "; ".join(steps), "error": ""}

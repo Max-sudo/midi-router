@@ -173,6 +173,25 @@ def update_all_pad_colors():
     print(f"[Launchpad] Updated {len(all_mappings)} pad LEDs", flush=True)
 
 
+def _update_workspace_leds(active_note: int):
+    """Highlight the active workspace pad at full color, dim the rest."""
+    all_mappings = launchpad_mappings.get_all_mappings()
+    for note_str, action in all_mappings.items():
+        if action.get("action_type") != "workspace":
+            continue
+        pad_note = int(note_str)
+        color = action.get("color", "")
+        if not color:
+            continue
+        r, g, b = _parse_color(color)
+        if pad_note == active_note:
+            # Full brightness
+            set_pad_color(pad_note, r, g, b)
+        else:
+            # Dim to ~25%
+            set_pad_color(pad_note, r // 4, g // 4, b // 4)
+
+
 def _on_midi_message(event, data=None):
     """Called by python-rtmidi when a MIDI message arrives.
     event = ([status, data1, data2, ...], delta_time)
@@ -223,6 +242,9 @@ def _on_midi_message(event, data=None):
         result = launchpad_actions.execute(action)
         if result["success"]:
             print(f"[Launchpad] Action OK for pad {note}", flush=True)
+            # Highlight active workspace pad, dim the others
+            if action.get("action_type") == "workspace":
+                _update_workspace_leds(note)
         else:
             print(f"[Launchpad] Action FAILED for pad {note}: {result['error']}", flush=True)
 

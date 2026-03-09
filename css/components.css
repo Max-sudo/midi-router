@@ -703,13 +703,307 @@
 }
 
 /* App picker */
-.lp-app-search {
-  margin-bottom: var(--space-2);
+/* ── Workspace app list ────────────────────────────────────────── */
+
+.ws-app-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-bottom: var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
 }
 
-.lp-app-select {
-  width: 100%;
+.ws-app-list:empty {
+  display: none;
+}
+
+.ws-app-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background 0.15s ease;
+}
+
+.ws-app-card:last-child {
+  border-bottom: none;
+}
+
+.ws-app-card:hover {
+  background: var(--bg-hover);
+}
+
+.ws-app-card__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 10px var(--space-3);
+}
+
+.ws-app-card__icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  flex-shrink: 0;
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.ws-app-card__name {
+  flex: 1;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.01em;
+}
+
+.ws-app-card__remove {
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  flex-shrink: 0;
+  opacity: 0.5;
+  transition: all 0.15s ease;
+}
+
+.ws-app-card:hover .ws-app-card__remove {
+  opacity: 1;
+}
+
+.ws-app-card__remove:hover {
+  background: rgba(255, 55, 95, 0.18);
+  border-color: rgba(255, 55, 95, 0.35);
+  color: #ff375f;
+  opacity: 1;
+}
+
+/* ── Folder picker (VS Code project path) ─────────────────────── */
+
+.ws-folder-picker {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3) 10px;
+}
+
+.ws-folder-picker__current {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
+}
+
+.ws-folder-picker__current--set {
+  color: var(--text-secondary);
+}
+
+.ws-folder-picker__browse {
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(0, 240, 255, 0.08);
+  border: 1px solid rgba(0, 240, 255, 0.2);
+  color: var(--accent-cyan);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.ws-folder-picker__browse:hover {
+  background: rgba(0, 240, 255, 0.15);
+  border-color: rgba(0, 240, 255, 0.35);
+}
+
+/* ── Folder browser panel ─────────────────────────────────────── */
+
+.ws-folder-browser {
+  margin: 0 var(--space-3) 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--bg-base);
+}
+
+.ws-folder-browser__header {
+  padding: 8px var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+}
+
+.ws-folder-browser__path {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
+}
+
+.ws-folder-browser__nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+}
+
+.ws-folder-browser__up,
+.ws-folder-browser__select {
+  -webkit-appearance: none;
+  appearance: none;
+  border: 1px solid var(--border-default);
+  font-size: var(--font-size-xs);
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+}
+
+.ws-folder-browser__up {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+}
+
+.ws-folder-browser__up:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ws-folder-browser__select {
+  background: rgba(0, 240, 255, 0.08);
+  border-color: rgba(0, 240, 255, 0.2);
+  color: var(--accent-cyan);
+  margin-left: auto;
+}
+
+.ws-folder-browser__select:hover {
+  background: rgba(0, 240, 255, 0.15);
+}
+
+.ws-folder-browser__list {
   max-height: 200px;
+  overflow-y: auto;
+}
+
+.ws-folder-browser__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.ws-folder-browser__item:hover {
+  background: rgba(0, 240, 255, 0.06);
+}
+
+.ws-folder-browser__item svg {
+  flex-shrink: 0;
+}
+
+.ws-folder-browser__empty {
+  padding: var(--space-4);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+/* ── Workspace search dropdown ────────────────────────────────── */
+
+.ws-search-wrap {
+  position: relative;
+}
+
+.ws-search-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: var(--space-1) 0;
+}
+
+.ws-search-dropdown__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 8px var(--space-3);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  transition: background 0.1s ease;
+  margin: 0 var(--space-1);
+  border-radius: var(--radius-md);
+}
+
+.ws-search-dropdown__item:hover {
+  background: rgba(0, 240, 255, 0.08);
+}
+
+.ws-search-dropdown__icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  flex-shrink: 0;
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.ws-search-dropdown__empty {
+  padding: var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+.field__hint {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-top: var(--space-1);
+  line-height: 1.4;
 }
 
 /* Shortcut capture */

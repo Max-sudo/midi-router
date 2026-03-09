@@ -3,3 +3,4 @@ __pycache__/
 *.pyc
 launchpad_mappings.json
 .icon_cache/
+.env

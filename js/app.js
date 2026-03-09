@@ -11,6 +11,7 @@ import * as splits from './splits.js';
 import * as pcEditor from './pc-editor.js';
 import * as avsync from './avsync.js';
 import * as launchpad from './launchpad.js';
+import * as home from './home.js';
 
 // ── DOM references ─────────────────────────────────────────────────
 const statusDot      = $('#midi-status-dot');
@@ -27,6 +28,7 @@ async function boot() {
 
   // 2. Init modules (they subscribe to bus events internally)
   tabs.init();
+  home.init();
   splits.init();
   patchbay.init();
   router.init();

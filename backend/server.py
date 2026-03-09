@@ -15,6 +15,7 @@ from services.progress import create_job, get_job
 from services.sync_analyzer import analyze_sync
 from services.renderer import render
 from services import launchpad_mappings, launchpad_midi, launchpad_actions
+from services.chat import stream_chat
 
 
 # ── WebSocket manager for Launchpad ──────────────────────────────────
@@ -203,6 +204,25 @@ def launchpad_app_icon(app_name: str):
                         headers={"Cache-Control": "public, max-age=86400"})
 
 
+@app.get("/api/browse")
+def browse_directory(path: str = "~"):
+    """List directories for the folder picker."""
+    from pathlib import Path as P
+    target = P(path).expanduser().resolve()
+    if not target.is_dir():
+        raise HTTPException(status_code=400, detail="Not a directory")
+    items = []
+    try:
+        for entry in sorted(target.iterdir(), key=lambda e: e.name.lower()):
+            if entry.name.startswith("."):
+                continue
+            if entry.is_dir():
+                items.append({"name": entry.name, "path": str(entry)})
+    except PermissionError:
+        pass
+    return {"path": str(target), "parent": str(target.parent), "items": items}
+
+
 @app.get("/api/launchpad/status")
 def launchpad_status():
     return launchpad_midi.get_status()
@@ -267,6 +287,36 @@ async def launchpad_ws(websocket: WebSocket):
             await websocket.receive_text()  # keep alive
     except WebSocketDisconnect:
         ws_manager.disconnect(websocket)
+
+
+# ── Chat endpoint ────────────────────────────────────────────────
+@app.websocket("/api/chat/ws")
+async def chat_ws(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        while True:
+            data = await websocket.receive_json()
+            messages = data.get("messages", [])
+
+            async def send_chunk(text: str):
+                await websocket.send_json({"type": "delta", "text": text})
+
+            async def send_tool_use(name: str, tool_input: dict):
+                await websocket.send_json({
+                    "type": "tool_use",
+                    "name": name,
+                    "input": tool_input,
+                })
+
+            await stream_chat(messages, send_chunk, on_tool_use=send_tool_use)
+            await websocket.send_json({"type": "done"})
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        try:
+            await websocket.send_json({"type": "error", "text": str(e)})
+        except Exception:
+            pass
 
 
 # ── Static files (serve the frontend) ─────────────────────────────

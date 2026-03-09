@@ -41,6 +41,7 @@ const ACTION_TYPES = [
   { value: 'keyboard_shortcut', label: 'Keyboard Shortcut' },
   { value: 'applescript', label: 'AppleScript' },
   { value: 'shell', label: 'Shell Command' },
+  { value: 'workspace', label: 'Workspace' },
 ];
 
 // ── Build UI ──────────────────────────────────────────────────────
@@ -468,6 +469,247 @@ function buildParamsFields(container, actionType, params) {
     });
     field.appendChild(input);
     container.appendChild(field);
+
+  } else if (actionType === 'workspace') {
+    // Desktop / Space number
+    const desktopField = createElement('div', { className: 'field' });
+    desktopField.appendChild(createElement('label', { className: 'field__label', textContent: 'Desktop (Space)' }));
+    const desktopInput = createElement('input', {
+      type: 'number', className: 'field__input', name: 'desktop',
+      placeholder: '1', min: '1', max: '16',
+      value: params.desktop || '',
+    });
+    desktopField.appendChild(desktopInput);
+    container.appendChild(desktopField);
+
+    // Hidden container to hold selected app names
+    const selectedApps = params.apps || [];
+    const appsInput = createElement('input', { type: 'hidden', name: 'apps' });
+    appsInput.value = JSON.stringify(selectedApps);
+
+    // Filter out system/utility apps that aren't useful
+    const HIDDEN_APPS = new Set([
+      'Automator', 'Migration Assistant', 'AirPort Utility', 'Boot Camp Assistant',
+      'Bluetooth File Exchange', 'ColorSync Utility', 'Console', 'Directory Utility',
+      'Disk Utility', 'Grapher', 'Keychain Access', 'System Information',
+      'System Preferences', 'System Settings', 'MIDI Setup', 'Audio MIDI Setup',
+      'VoiceOver Utility', 'Accessibility Inspector', 'FileMerge', 'Instruments',
+      'Ticket Viewer', 'Certificate Assistant', 'Wireless Diagnostics',
+      'Screen Sharing', 'DVD Player', 'Chess',
+    ]);
+
+    // Apps section
+    const addField = createElement('div', { className: 'field' });
+    addField.appendChild(createElement('label', { className: 'field__label', textContent: 'Apps' }));
+
+    // Helper: get display name from a mixed entry (string or {name, path})
+    function appName(entry) {
+      return typeof entry === 'object' ? entry.name : entry;
+    }
+
+    // Selected apps list (rendered above search)
+    const selectedList = createElement('div', { className: 'ws-app-list' });
+
+    function renderSelected() {
+      selectedList.innerHTML = '';
+      for (let i = 0; i < selectedApps.length; i++) {
+        const entry = selectedApps[i];
+        const displayName = appName(entry);
+        const isVSCode = displayName === 'Visual Studio Code';
+
+        const card = createElement('div', { className: 'ws-app-card' + (isVSCode ? ' ws-app-card--has-path' : '') });
+
+        // Top row: icon + name + remove
+        const row = createElement('div', { className: 'ws-app-card__row' });
+        const icon = createElement('img', {
+          className: 'ws-app-card__icon',
+          src: `/api/launchpad/apps/${encodeURIComponent(displayName)}/icon`,
+          width: 32, height: 32,
+        });
+        icon.onerror = function() { this.style.display = 'none'; };
+        const name = createElement('span', {
+          className: 'ws-app-card__name',
+          textContent: displayName,
+        });
+        const removeBtn = createElement('button', {
+          className: 'ws-app-card__remove',
+          innerHTML: '<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 2l6 6M8 2L2 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+          type: 'button',
+        });
+        removeBtn.addEventListener('click', () => {
+          selectedApps.splice(i, 1);
+          appsInput.value = JSON.stringify(selectedApps);
+          renderSelected();
+          renderDropdown();
+        });
+        row.appendChild(icon);
+        row.appendChild(name);
+        row.appendChild(removeBtn);
+        card.appendChild(row);
+
+        // VS Code: folder browser for project path
+        if (isVSCode) {
+          const currentPath = (typeof entry === 'object' ? entry.path : '') || '';
+          const pathWrap = createElement('div', { className: 'ws-folder-picker' });
+
+          const pathDisplay = createElement('div', { className: 'ws-folder-picker__current' });
+          pathDisplay.textContent = currentPath || 'No folder selected';
+          if (currentPath) pathDisplay.classList.add('ws-folder-picker__current--set');
+
+          const browseBtn = createElement('button', {
+            className: 'ws-folder-picker__browse',
+            textContent: 'Browse',
+            type: 'button',
+          });
+
+          const browserPanel = createElement('div', { className: 'ws-folder-browser' });
+          browserPanel.hidden = true;
+
+          function updatePath(newPath) {
+            if (typeof selectedApps[i] === 'string') {
+              selectedApps[i] = { name: 'Visual Studio Code', path: newPath };
+            } else {
+              selectedApps[i].path = newPath;
+            }
+            appsInput.value = JSON.stringify(selectedApps);
+            pathDisplay.textContent = newPath || 'No folder selected';
+            pathDisplay.classList.toggle('ws-folder-picker__current--set', !!newPath);
+          }
+
+          async function loadDir(dirPath) {
+            try {
+              const res = await fetch(`/api/browse?path=${encodeURIComponent(dirPath)}`);
+              const data = await res.json();
+              browserPanel.innerHTML = '';
+
+              // Header with current path and select button
+              const header = createElement('div', { className: 'ws-folder-browser__header' });
+              const pathLabel = createElement('span', {
+                className: 'ws-folder-browser__path',
+                textContent: data.path,
+              });
+              header.appendChild(pathLabel);
+              browserPanel.appendChild(header);
+
+              // Navigation row: back button + select this folder
+              const nav = createElement('div', { className: 'ws-folder-browser__nav' });
+
+              if (data.parent !== data.path) {
+                const upBtn = createElement('button', {
+                  className: 'ws-folder-browser__up',
+                  innerHTML: '<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 10V2M6 2L2 6M6 2l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Up',
+                  type: 'button',
+                });
+                upBtn.addEventListener('click', () => loadDir(data.parent));
+                nav.appendChild(upBtn);
+              }
+
+              const selectBtn = createElement('button', {
+                className: 'ws-folder-browser__select',
+                textContent: 'Select this folder',
+                type: 'button',
+              });
+              selectBtn.addEventListener('click', () => {
+                updatePath(data.path);
+                browserPanel.hidden = true;
+              });
+              nav.appendChild(selectBtn);
+              browserPanel.appendChild(nav);
+
+              // Folder list
+              const list = createElement('div', { className: 'ws-folder-browser__list' });
+              for (const item of data.items) {
+                const row = createElement('div', { className: 'ws-folder-browser__item' });
+                row.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1.5 2.5h4l1.5 1.5h5.5v7.5h-11z" stroke="currentColor" stroke-width="1" fill="rgba(0,240,255,0.1)"/></svg>';
+                const label = createElement('span', { textContent: item.name });
+                row.appendChild(label);
+                row.addEventListener('click', () => loadDir(item.path));
+                list.appendChild(row);
+              }
+              if (data.items.length === 0) {
+                list.appendChild(createElement('div', {
+                  className: 'ws-folder-browser__empty',
+                  textContent: 'No subfolders',
+                }));
+              }
+              browserPanel.appendChild(list);
+            } catch (e) {
+              browserPanel.innerHTML = '';
+              browserPanel.appendChild(createElement('div', {
+                className: 'ws-folder-browser__empty',
+                textContent: 'Failed to load directory',
+              }));
+            }
+          }
+
+          browseBtn.addEventListener('click', () => {
+            browserPanel.hidden = !browserPanel.hidden;
+            if (!browserPanel.hidden) {
+              loadDir(currentPath || '~');
+            }
+          });
+
+          pathWrap.appendChild(pathDisplay);
+          pathWrap.appendChild(browseBtn);
+          card.appendChild(pathWrap);
+          card.appendChild(browserPanel);
+        }
+
+        selectedList.appendChild(card);
+      }
+    }
+
+    // Search filter + native select dropdown
+    const searchInput = createElement('input', {
+      type: 'text', className: 'field__input',
+      placeholder: 'Search apps...', autocomplete: 'off',
+    });
+
+    const appSelect = createElement('select', { className: 'dropdown', name: '_app_picker' });
+
+    function populateSelect(filter = '') {
+      appSelect.innerHTML = '';
+      appSelect.appendChild(new Option('— Add an app —', ''));
+      const query = filter.toLowerCase();
+      const selectedNames = selectedApps.map(e => appName(e));
+      const filtered = appList
+        .filter(a => !HIDDEN_APPS.has(a))
+        .filter(a => !selectedNames.includes(a))
+        .filter(a => !query || a.toLowerCase().includes(query));
+      for (const name of filtered) {
+        appSelect.appendChild(new Option(name, name));
+      }
+    }
+
+    // Ensure apps are loaded, then populate
+    if (appList.length === 0) {
+      loadApps().then(() => populateSelect());
+    } else {
+      populateSelect();
+    }
+
+    searchInput.addEventListener('input', () => populateSelect(searchInput.value));
+
+    appSelect.addEventListener('change', () => {
+      const val = appSelect.value;
+      if (!val) return;
+      const entry = val === 'Visual Studio Code'
+        ? { name: val, path: '' }
+        : val;
+      selectedApps.push(entry);
+      appsInput.value = JSON.stringify(selectedApps);
+      renderSelected();
+      populateSelect(searchInput.value);
+      appSelect.value = '';
+    });
+
+    renderSelected();
+
+    addField.appendChild(searchInput);
+    addField.appendChild(appSelect);
+    addField.appendChild(selectedList);
+    addField.appendChild(appsInput);
+    container.appendChild(addField);
   }
 }
 
@@ -514,6 +756,19 @@ function autoLabel(actionType, params) {
   if (actionType === 'keyboard_shortcut') return formatShortcut(params.keys || '');
   if (actionType === 'applescript') return 'Script';
   if (actionType === 'shell') return params.command?.split(' ')[0] || 'Shell';
+  if (actionType === 'workspace') {
+    const desktop = params.desktop ? `D${params.desktop}` : '';
+    const apps = params.apps || [];
+    const getName = e => typeof e === 'object' ? e.name : e;
+    const getLabel = e => {
+      if (typeof e === 'object' && e.path) {
+        return e.path.split('/').filter(Boolean).pop() || e.name;
+      }
+      return getName(e);
+    };
+    const appLabel = apps.length === 1 ? getLabel(apps[0]) : apps.length > 1 ? `${apps.length} apps` : '';
+    return [desktop, appLabel].filter(Boolean).join(': ') || 'Workspace';
+  }
   return '';
 }
 
@@ -527,6 +782,12 @@ function getParamsFromContainer(container, actionType) {
     params.script = container.querySelector('[name="script"]')?.value || '';
   } else if (actionType === 'shell') {
     params.command = container.querySelector('[name="command"]')?.value || '';
+  } else if (actionType === 'workspace') {
+    const desktop = container.querySelector('[name="desktop"]')?.value;
+    if (desktop) params.desktop = parseInt(desktop, 10);
+    try {
+      params.apps = JSON.parse(container.querySelector('[name="apps"]')?.value || '[]');
+    } catch { params.apps = []; }
   }
   return params;
 }
