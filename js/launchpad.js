@@ -29,11 +29,16 @@ for (let row = 8; row >= 1; row--) {
   PAD_LAYOUT.push(r);
 }
 
+// Colors that map exactly to Launchpad Pro MK3 7-bit RGB (0-127).
+// Each channel value × 2 = the hex byte, so >> 1 is lossless.
+// Organized: reds, oranges, yellows, greens, cyans, blues, purples, pinks, white
 const PAD_COLORS = [
-  '#ff0000', '#ff4400', '#ff8800', '#ffcc00',
-  '#ffff00', '#88ff00', '#00ff00', '#00ff88',
-  '#00ffff', '#0088ff', '#0000ff', '#4400ff',
-  '#8800ff', '#ff00ff', '#ff0088', '#ffffff',
+  '#fe0000', '#fe3200', '#fe6400', '#fe9600',
+  '#fec800', '#fefe00', '#64fe00', '#00fe00',
+  '#00fe64', '#00fefe', '#0064fe', '#0000fe',
+  '#3200fe', '#6400fe', '#9600fe', '#fe00fe',
+  '#fe0096', '#fe0064', '#fe6464', '#fec896',
+  '#96fefe', '#9696fe', '#c896fe', '#fefefe',
 ];
 
 const ACTION_TYPES = [
@@ -196,7 +201,14 @@ function showEditor(note) {
   customSwatch.addEventListener('click', () => colorPicker.click());
 
   colorPicker.addEventListener('input', () => {
-    customSwatch.style.background = colorPicker.value;
+    // Snap to Launchpad-compatible color (even values only, so >>1 is lossless)
+    const raw = colorPicker.value;
+    const r = parseInt(raw.slice(1, 3), 16) & 0xFE;
+    const g = parseInt(raw.slice(3, 5), 16) & 0xFE;
+    const b = parseInt(raw.slice(5, 7), 16) & 0xFE;
+    const snapped = `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+    colorPicker.value = snapped;
+    customSwatch.style.background = snapped;
     customSwatch.textContent = '';
     for (const s of colorRow.querySelectorAll('.lp-color-swatch')) s.classList.remove('lp-color-swatch--active');
     customSwatch.classList.add('lp-color-swatch--active');
