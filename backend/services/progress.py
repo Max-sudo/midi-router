@@ -1,4 +1,5 @@
 # ── Shared progress tracker for long-running jobs ──────────────────
+from __future__ import annotations
 import asyncio
 import json
 import threading

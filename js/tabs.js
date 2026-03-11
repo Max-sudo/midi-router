@@ -1,7 +1,7 @@
 // ── Tab switching ──────────────────────────────────────────────────
 import { bus, $, $$ } from './utils.js';
 
-let activeTab = 'midi';
+let activeTab = 'home';
 
 // Core tabs that cannot be deleted
 const CORE_TABS = new Set(['home', 'midi', 'avsync', 'launchpad']);

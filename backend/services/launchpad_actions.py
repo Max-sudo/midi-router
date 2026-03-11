@@ -1,4 +1,5 @@
 # ── Execute macOS actions triggered by Launchpad pads ──────────────
+from __future__ import annotations
 import subprocess
 import shlex
 from pathlib import Path
