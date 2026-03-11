@@ -269,6 +269,20 @@ def delete_tab(tab_id: str):
     return {"success": True, "removed_files": removed_files}
 
 
+@app.get("/api/leadsheets")
+def list_leadsheets():
+    """List all lead sheet images in assets/leadsheets/."""
+    folder = Path(__file__).parent.parent / "assets" / "leadsheets"
+    if not folder.is_dir():
+        return []
+    sheets = []
+    for f in sorted(folder.iterdir(), key=lambda e: e.stem.lower()):
+        if f.suffix.lower() == ".png":
+            title = f.stem.replace("-", " ").replace("_", " ")
+            sheets.append({"title": title, "file": f.name, "url": f"/assets/leadsheets/{f.name}"})
+    return sheets
+
+
 @app.get("/api/browse")
 def browse_directory(path: str = "~"):
     """List directories for the folder picker."""

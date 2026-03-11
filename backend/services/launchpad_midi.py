@@ -275,6 +275,8 @@ def _listener_loop():
         print("[Launchpad] python-rtmidi not installed — listener disabled", flush=True)
         return
 
+    keepalive_counter = 0
+
     while _running:
         if not _midi_inputs:
             # Try to find and connect to all Launchpad ports
@@ -319,6 +321,7 @@ def _listener_loop():
                 if missing:
                     print(f"[Launchpad] Lost ports: {missing}", flush=True)
                     _close_all()
+                    keepalive_counter = 0
                     if _ws_broadcast:
                         _ws_broadcast(json.dumps({
                             "type": "status",
@@ -327,6 +330,17 @@ def _listener_loop():
                         }))
             except Exception:
                 pass
+
+            # Re-send Programmer Mode SysEx every ~30s to prevent revert
+            keepalive_counter += 1
+            if keepalive_counter >= 15:  # 15 × 2s = 30s
+                keepalive_counter = 0
+                if _midi_output:
+                    try:
+                        _midi_output.send_message(SYSEX_PROGRAMMER_MODE)
+                        update_all_pad_colors()
+                    except Exception as e:
+                        print(f"[Launchpad] Keep-alive SysEx failed: {e}", flush=True)
 
         time.sleep(2)  # Poll every 2 seconds for connection changes
 

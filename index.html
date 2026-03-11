@@ -17,6 +17,8 @@
   <link rel="stylesheet" href="css/keyboard.css">
   <link rel="stylesheet" href="css/animations.css">
   <link rel="stylesheet" href="css/home.css">
+  <link rel="stylesheet" href="css/mealprep.css">
+  <link rel="stylesheet" href="css/leadsheets.css">
 </head>
 <body>
   <div class="app" id="app">
@@ -28,6 +30,8 @@
         <button class="tab-btn" data-tab="midi">MIDI Router</button>
         <button class="tab-btn" data-tab="avsync">AV Sync</button>
         <button class="tab-btn" data-tab="launchpad">Launchpad</button>
+        <button class="tab-btn" data-tab="mealprep">Meal Prep</button>
+        <button class="tab-btn" data-tab="leadsheets">Lead Sheets</button>
       </nav>
       <div class="header__controls">
         <!-- Home controls -->
@@ -125,6 +129,16 @@
       <div class="max-panel">
         <div class="max-text">Max</div>
       </div>
+    </div>
+
+    <!-- Tab: Meal Prep -->
+    <div class="tab-content" id="tab-mealprep" hidden>
+      <div class="mealprep-panel" id="mealprep-panel"></div>
+    </div>
+
+    <!-- Tab: Lead Sheets -->
+    <div class="tab-content" id="tab-leadsheets" hidden>
+      <div class="leadsheets-panel" id="leadsheets-panel"></div>
     </div>
 
     <!-- Status Bar -->
