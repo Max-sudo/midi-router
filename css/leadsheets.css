@@ -1,0 +1,122 @@
+.leadsheets-panel {
+  padding: var(--space-6) var(--space-8);
+  height: 100%;
+  overflow-y: auto;
+}
+
+.leadsheets-loading,
+.leadsheets-empty {
+  color: var(--text-secondary);
+  font-size: var(--font-size-base);
+  text-align: center;
+  padding: var(--space-12) 0;
+}
+
+/* Card grid */
+.leadsheets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--space-5);
+}
+
+.leadsheet-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color var(--transition-base), box-shadow var(--transition-base);
+}
+
+.leadsheet-card:hover {
+  border-color: var(--accent-cyan);
+  box-shadow: var(--shadow-glow-cyan);
+}
+
+.leadsheet-card__thumb {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  object-position: top center;
+  display: block;
+  background: var(--bg-elevated);
+}
+
+.leadsheet-card__title {
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Fullscreen viewer overlay */
+.leadsheet-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.leadsheet-viewer__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+}
+
+.leadsheet-viewer__content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  max-width: 95vw;
+  max-height: 95vh;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.leadsheet-viewer__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.leadsheet-viewer__title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+}
+
+.leadsheet-viewer__close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 28px;
+  cursor: pointer;
+  padding: 0 var(--space-2);
+  line-height: 1;
+}
+
+.leadsheet-viewer__close:hover {
+  color: var(--accent-magenta);
+}
+
+.leadsheet-viewer__body {
+  overflow: auto;
+  padding: var(--space-4);
+}
+
+.leadsheet-viewer__body img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}

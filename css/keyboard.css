@@ -38,10 +38,10 @@
 }
 
 .keyboard__split-line {
-  stroke-width: 2.5;
-  stroke-dasharray: 4 3;
+  stroke-width: 3;
+  stroke-dasharray: none;
   pointer-events: none;
-  filter: drop-shadow(0 0 3px currentColor);
+  filter: drop-shadow(0 0 6px currentColor);
 }
 
 .keyboard__split-line--1 {
