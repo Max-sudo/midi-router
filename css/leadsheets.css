@@ -1,122 +1,386 @@
+/* ── Lead Sheets Layout ─────────────────────────────────────────── */
 .leadsheets-panel {
-  padding: var(--space-6) var(--space-8);
   height: 100%;
-  overflow-y: auto;
-}
-
-.leadsheets-loading,
-.leadsheets-empty {
-  color: var(--text-secondary);
-  font-size: var(--font-size-base);
-  text-align: center;
-  padding: var(--space-12) 0;
-}
-
-/* Card grid */
-.leadsheets-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: var(--space-5);
-}
-
-.leadsheet-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
   overflow: hidden;
-  cursor: pointer;
-  transition: border-color var(--transition-base), box-shadow var(--transition-base);
 }
 
-.leadsheet-card:hover {
-  border-color: var(--accent-cyan);
-  box-shadow: var(--shadow-glow-cyan);
-}
-
-.leadsheet-card__thumb {
-  width: 100%;
-  aspect-ratio: 3 / 4;
-  object-fit: cover;
-  object-position: top center;
-  display: block;
-  background: var(--bg-elevated);
-}
-
-.leadsheet-card__title {
-  padding: var(--space-3) var(--space-4);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-bold);
-  color: var(--text-primary);
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Fullscreen viewer overlay */
-.leadsheet-viewer {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
+.ls-layout {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  height: 100%;
 }
 
-.leadsheet-viewer__backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.85);
-}
-
-.leadsheet-viewer__content {
-  position: relative;
+/* ── Sidebar ──────────────────────────────────────────────────────── */
+.ls-sidebar {
+  width: 240px;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  max-width: 95vw;
-  max-height: 95vh;
+  border-right: 1px solid var(--border-subtle);
   background: var(--bg-surface);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 
-.leadsheet-viewer__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-3) var(--space-5);
+.ls-search {
+  padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border-subtle);
 }
 
-.leadsheet-viewer__title {
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-bold);
+.ls-search__input {
+  width: 100%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  padding: var(--space-2) var(--space-3);
+  outline: none;
+  box-sizing: border-box;
+}
+
+.ls-search__input:focus {
+  border-color: var(--accent-cyan);
+}
+
+/* ── Tag filter row ───────────────────────────────────────────────── */
+.ls-tag-filters {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.ls-filter-btn {
+  flex: 1;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 11px;
+  padding: var(--space-1) 0;
+  cursor: pointer;
+  transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base);
+}
+
+.ls-filter-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface);
+}
+
+.ls-filter-btn--active.ls-filter-btn--ballad { border-color: var(--accent-cyan); color: var(--accent-cyan); background: rgba(0,240,255,0.08); }
+.ls-filter-btn--active.ls-filter-btn--mid    { border-color: var(--accent-magenta); color: var(--accent-magenta); background: rgba(191,90,242,0.08); }
+.ls-filter-btn--active.ls-filter-btn--up     { border-color: #f0b429; color: #f0b429; background: rgba(240,180,41,0.08); }
+
+/* ── Song list ────────────────────────────────────────────────────── */
+.ls-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-2) 0;
+  min-height: 0;
+}
+
+.ls-list__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background var(--transition-base), color var(--transition-base);
+}
+
+.ls-list__item:hover {
+  background: var(--bg-elevated);
   color: var(--text-primary);
 }
 
-.leadsheet-viewer__close {
+.ls-list__item--active {
+  background: var(--bg-elevated);
+  color: var(--accent-cyan);
+  font-weight: var(--font-weight-bold);
+}
+
+/* ── Tag dots ─────────────────────────────────────────────────────── */
+.ls-tag-dots {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.ls-tag-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: transparent;
+}
+
+.ls-tag-dot--ballad { background: var(--accent-cyan); }
+.ls-tag-dot--mid    { background: var(--accent-magenta); }
+.ls-tag-dot--up     { background: #f0b429; }
+
+/* ── Set lists section ────────────────────────────────────────────── */
+.ls-setlists-section {
+  border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.ls-setlists-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-secondary);
+  position: sticky;
+  top: 0;
+  background: var(--bg-surface);
+}
+
+.ls-setlists-new {
+  background: none;
+  border: none;
+  color: var(--accent-cyan);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  padding: 0;
+}
+
+.ls-setlists-new:hover { opacity: 0.8; }
+
+.ls-setlist-item {
+  padding: var(--space-1) var(--space-4) var(--space-1) var(--space-6);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background var(--transition-base), color var(--transition-base);
+}
+
+.ls-setlist-item:hover { background: var(--bg-elevated); color: var(--text-primary); }
+.ls-setlist-item--active { color: var(--accent-cyan); font-weight: var(--font-weight-bold); }
+
+/* ── Viewer ───────────────────────────────────────────────────────── */
+.ls-viewer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-base);
+}
+
+.ls-viewer__empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-size: var(--font-size-base);
+}
+
+#ls-sheet-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.ls-viewer__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-6);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.ls-viewer__title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  flex: 1;
+}
+
+/* ── Tag picker ───────────────────────────────────────────────────── */
+.ls-tag-picker {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.ls-tag-btn {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 11px;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.ls-tag-btn--active.ls-tag-btn--ballad { border-color: var(--accent-cyan); color: var(--accent-cyan); background: rgba(0,240,255,0.08); }
+.ls-tag-btn--active.ls-tag-btn--mid    { border-color: var(--accent-magenta); color: var(--accent-magenta); background: rgba(191,90,242,0.08); }
+.ls-tag-btn--active.ls-tag-btn--up     { border-color: #f0b429; color: #f0b429; background: rgba(240,180,41,0.08); }
+
+.ls-tag-btn:not(.ls-tag-btn--active):hover { color: var(--text-primary); }
+
+.ls-viewer__img {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  object-fit: contain;
+  object-position: top center;
+  display: block;
+  padding: var(--space-4);
+  box-sizing: border-box;
+}
+
+/* ── Set list editor ──────────────────────────────────────────────── */
+#ls-setlist-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ls-setlist-editor-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.ls-setlist-close-btn {
+  background: none;
+  border: none;
+  color: var(--accent-cyan);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.ls-setlist-close-btn:hover { opacity: 0.8; }
+
+.ls-setlist-name {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-default);
+  color: var(--text-primary);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  padding: var(--space-1) 0;
+  outline: none;
+}
+
+.ls-setlist-name:focus { border-bottom-color: var(--accent-cyan); }
+
+.ls-setlist-delete-btn {
+  background: none;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  padding: var(--space-1) var(--space-3);
+  cursor: pointer;
+}
+
+.ls-setlist-delete-btn:hover { border-color: var(--accent-magenta); color: var(--accent-magenta); }
+
+.ls-setlist-hint {
+  padding: var(--space-2) var(--space-6);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin: 0;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.ls-setlist-songs {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-2) 0;
+}
+
+.ls-setlist-empty {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  padding: var(--space-8) var(--space-6);
+  margin: 0;
+}
+
+.ls-setlist-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  transition: background var(--transition-base);
+  cursor: default;
+  user-select: none;
+}
+
+.ls-setlist-row:hover { background: var(--bg-elevated); }
+.ls-setlist-row--dragging { opacity: 0.4; }
+.ls-setlist-row--over { background: var(--bg-elevated); outline: 1px dashed var(--accent-cyan); }
+
+.ls-setlist-row__handle {
+  color: var(--text-secondary);
+  cursor: grab;
+  font-size: 14px;
+  flex-shrink: 0;
+  opacity: 0.4;
+}
+
+.ls-setlist-row:hover .ls-setlist-row__handle { opacity: 1; }
+.ls-setlist-row__handle:active { cursor: grabbing; }
+
+.ls-setlist-row__num {
+  color: var(--text-secondary);
+  font-size: 11px;
+  width: 18px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.ls-setlist-row__name {
+  flex: 1;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ls-setlist-row__name:hover { color: var(--accent-cyan); }
+
+.ls-setlist-row__btn {
   background: none;
   border: none;
   color: var(--text-secondary);
-  font-size: 28px;
+  font-size: 13px;
   cursor: pointer;
-  padding: 0 var(--space-2);
+  padding: 2px 4px;
   line-height: 1;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
 }
 
-.leadsheet-viewer__close:hover {
-  color: var(--accent-magenta);
-}
-
-.leadsheet-viewer__body {
-  overflow: auto;
-  padding: var(--space-4);
-}
-
-.leadsheet-viewer__body img {
-  display: block;
-  max-width: 100%;
-  height: auto;
-  margin: 0 auto;
-}
+.ls-setlist-row__btn:hover:not(:disabled) { color: var(--text-primary); background: var(--bg-elevated); }
+.ls-setlist-row__btn:disabled { opacity: 0.25; cursor: default; }
+.ls-setlist-row__btn--remove:hover { color: var(--accent-magenta) !important; }
