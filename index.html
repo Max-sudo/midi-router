@@ -20,6 +20,7 @@
   <link rel="stylesheet" href="css/mealprep.css">
   <link rel="stylesheet" href="css/leadsheets.css">
   <link rel="stylesheet" href="css/ccmonitor.css">
+  <link rel="stylesheet" href="css/midimap.css">
 </head>
 <body>
   <div class="app" id="app">
@@ -34,6 +35,7 @@
         <button class="tab-btn" data-tab="mealprep">Meal Prep</button>
         <button class="tab-btn" data-tab="leadsheets">Lead Sheets</button>
         <button class="tab-btn" data-tab="ccmonitor">CC Monitor</button>
+        <button class="tab-btn" data-tab="midimap">MIDI Map</button>
       </nav>
       <div class="header__controls">
         <!-- Home controls -->
@@ -146,6 +148,11 @@
     <!-- Tab: CC Monitor -->
     <div class="tab-content" id="tab-ccmonitor" hidden>
       <div class="ccmonitor-panel" id="ccmonitor-panel"></div>
+    </div>
+
+    <!-- Tab: MIDI Map -->
+    <div class="tab-content" id="tab-midimap" hidden>
+      <div class="midimap-panel" id="midimap-panel"></div>
     </div>
 
     <!-- Status Bar -->

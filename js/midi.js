@@ -11,7 +11,7 @@ export async function init() {
     return false;
   }
   try {
-    midiAccess = await navigator.requestMIDIAccess({ sysex: false });
+    midiAccess = await navigator.requestMIDIAccess({ sysex: true });
     midiAccess.onstatechange = handleStateChange;
     bus.emit('midi:ready', getDevices());
     return true;

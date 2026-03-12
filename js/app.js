@@ -15,6 +15,7 @@ import * as home from './home.js';
 import * as mealprep from './mealprep.js';
 import * as leadsheets from './leadsheets.js';
 import * as ccmonitor from './ccmonitor.js';
+import * as midimap from './midimap.js';
 
 
 // ── DOM references ─────────────────────────────────────────────────
@@ -44,6 +45,7 @@ async function boot() {
   mealprep.init();
   leadsheets.init();
   ccmonitor.init();
+  midimap.init();
   presets.init();
 
   // 3. Web MIDI (triggers midi:ready → modules react)
