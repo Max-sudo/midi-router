@@ -294,14 +294,89 @@
     .ls-setlist-row__btn:hover:not(:disabled) { color: var(--text-primary); background: var(--bg-elevated); }
     .ls-setlist-row__btn:disabled { opacity: 0.25; cursor: default; }
     .ls-setlist-row__btn--remove:hover { color: var(--accent-magenta) !important; }
+
+    /* ── Password gate ──────────────────────────────────────────────── */
+    .ls-gate {
+      height: 100vh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: var(--space-4);
+      background: var(--bg-base);
+    }
+    .ls-gate__title { font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); color: var(--text-primary); }
+    .ls-gate__form { display: flex; gap: var(--space-2); }
+    .ls-gate__input {
+      background: var(--bg-elevated); border: 1px solid var(--border-default);
+      border-radius: var(--radius-md); color: var(--text-primary);
+      font-size: var(--font-size-base); padding: var(--space-3) var(--space-4);
+      outline: none; width: 220px;
+    }
+    .ls-gate__input:focus { border-color: var(--accent-cyan); }
+    .ls-gate__btn {
+      background: var(--bg-elevated); border: 1px solid var(--accent-cyan);
+      border-radius: var(--radius-md); color: var(--accent-cyan);
+      font-size: var(--font-size-base); padding: var(--space-3) var(--space-6);
+      cursor: pointer; transition: background var(--transition-base);
+    }
+    .ls-gate__btn:hover { background: rgba(0,240,255,0.08); }
+    .ls-gate__error { color: var(--accent-magenta); font-size: var(--font-size-sm); min-height: 1.2em; }
   </style>
 </head>
 <body>
-  <div class="leadsheets-panel" id="leadsheets-panel"></div>
+  <div id="ls-gate" class="ls-gate">
+    <div class="ls-gate__title">Lead Sheets</div>
+    <div class="ls-gate__form">
+      <input class="ls-gate__input" id="ls-gate-input" type="password" placeholder="Password" autocomplete="off">
+      <button class="ls-gate__btn" id="ls-gate-btn">Enter</button>
+    </div>
+    <div class="ls-gate__error" id="ls-gate-error"></div>
+  </div>
+  <div class="leadsheets-panel" id="leadsheets-panel" style="display:none"></div>
   <input type="file" id="ls-file-input" multiple accept="image/*" style="display:none">
 
   <script>
   (function() {
+    // ── Password gate ────────────────────────────────────────────────
+    const HASH = 'fab514d0707732d793887ba2053b1690ad927a64581e88f262f8a12f0bdd28b5';
+
+    async function sha256(str) {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function checkPassword(pw) {
+      return (await sha256(pw)) === HASH;
+    }
+
+    function unlockApp() {
+      document.getElementById('ls-gate').style.display = 'none';
+      document.getElementById('leadsheets-panel').style.display = '';
+      localStorage.setItem('ls_unlocked', '1');
+      init();
+    }
+
+    if (localStorage.getItem('ls_unlocked') === '1') {
+      unlockApp();
+    } else {
+      const gateInput = document.getElementById('ls-gate-input');
+      const gateBtn = document.getElementById('ls-gate-btn');
+      const gateError = document.getElementById('ls-gate-error');
+
+      async function tryUnlock() {
+        if (await checkPassword(gateInput.value)) {
+          unlockApp();
+        } else {
+          gateError.textContent = 'Wrong password';
+          gateInput.value = '';
+          gateInput.focus();
+        }
+      }
+
+      gateBtn.addEventListener('click', tryUnlock);
+      gateInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') tryUnlock();
+      });
+      gateInput.focus();
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────
     const $ = (sel, parent) => (parent || document).querySelector(sel);
     const TAG_LABELS = { ballad: 'Ballad', mid: 'Mid', up: 'Up' };
@@ -874,8 +949,6 @@
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(() => {});
     }
-
-    init();
   })();
   </script>
 </body>
