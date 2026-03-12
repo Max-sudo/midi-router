@@ -31,14 +31,14 @@ let zoneOverlays = { low: null, mid: null, high: null };
 
 // Zone colors
 const ZONE_COLORS = {
-  low:  'rgba(0, 240, 255, 0.07)',
-  mid:  'rgba(191, 90, 242, 0.07)',
-  high: 'rgba(255, 159, 10, 0.07)',
+  low:  'rgba(0, 60, 220, 0.40)',
+  mid:  'rgba(180, 40, 220, 0.35)',
+  high: 'rgba(220, 40, 60, 0.35)',
 };
 export const ZONE_ACCENT = {
-  low:  '#00f0ff',
-  mid:  '#bf5af2',
-  high: '#ff9f0a',
+  low:  '#003cdc',
+  mid:  '#b428dc',
+  high: '#dc283c',
 };
 
 // ── Build keyboard SVG ─────────────────────────────────────────────
@@ -280,7 +280,6 @@ function xToNote(e) {
   let closest = FIRST_NOTE;
   let closestDist = Infinity;
   for (let n = FIRST_NOTE; n <= LAST_NOTE; n++) {
-    if (isBlack(n)) continue;
     const dist = Math.abs(getNoteX(n) - svgX);
     if (dist < closestDist) {
       closestDist = dist;

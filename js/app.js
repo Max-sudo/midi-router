@@ -14,6 +14,7 @@ import * as launchpad from './launchpad.js';
 import * as home from './home.js';
 import * as mealprep from './mealprep.js';
 import * as leadsheets from './leadsheets.js';
+import * as ccmonitor from './ccmonitor.js';
 
 
 // ── DOM references ─────────────────────────────────────────────────
@@ -42,6 +43,7 @@ async function boot() {
   launchpad.init();
   mealprep.init();
   leadsheets.init();
+  ccmonitor.init();
   presets.init();
 
   // 3. Web MIDI (triggers midi:ready → modules react)

@@ -1,0 +1,118 @@
+/* ── CC Monitor ──────────────────────────────────────────────────── */
+.ccmonitor-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ccm-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-6);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.ccm-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+}
+
+.ccm-hint {
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+  flex: 1;
+}
+
+.ccm-clear {
+  flex-shrink: 0;
+}
+
+.ccm-grid {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-2) var(--space-6);
+}
+
+.ccm-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background 150ms ease;
+}
+
+.ccm-row--flash {
+  animation: ccm-flash 400ms ease-out;
+}
+
+@keyframes ccm-flash {
+  0%   { background: rgba(0, 240, 255, 0.12); }
+  100% { background: transparent; }
+}
+
+.ccm-cc {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--accent-cyan);
+  width: 52px;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.ccm-label {
+  width: 160px;
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  padding: var(--space-1) var(--space-2);
+  outline: none;
+  transition: border-color var(--transition-base);
+}
+
+.ccm-label::placeholder {
+  color: var(--text-tertiary);
+}
+
+.ccm-label:hover {
+  border-color: var(--border-default);
+}
+
+.ccm-label:focus {
+  border-color: var(--accent-cyan);
+  background: var(--bg-elevated);
+}
+
+.ccm-bar-wrap {
+  flex: 1;
+  height: 20px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  position: relative;
+}
+
+.ccm-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple));
+  border-radius: var(--radius-sm);
+  transition: width 60ms ease-out;
+  min-width: 0;
+}
+
+.ccm-value {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  width: 32px;
+  text-align: right;
+  flex-shrink: 0;
+}

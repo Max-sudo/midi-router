@@ -38,18 +38,18 @@
 }
 
 .keyboard__split-line {
-  stroke-width: 3;
+  stroke-width: 4;
   stroke-dasharray: none;
   pointer-events: none;
-  filter: drop-shadow(0 0 6px currentColor);
+  filter: drop-shadow(0 0 8px currentColor) drop-shadow(0 0 3px currentColor);
 }
 
 .keyboard__split-line--1 {
-  stroke: #00f0ff;
+  stroke: #003cdc;
 }
 
 .keyboard__split-line--2 {
-  stroke: #ff9f0a;
+  stroke: #dc283c;
 }
 
 .keyboard__split-label {
@@ -61,13 +61,13 @@
 }
 
 .keyboard__split-label--1 {
-  fill: #00f0ff;
-  filter: drop-shadow(0 0 2px rgba(0, 240, 255, 0.5));
+  fill: #003cdc;
+  filter: drop-shadow(0 0 2px rgba(0, 60, 220, 0.5));
 }
 
 .keyboard__split-label--2 {
-  fill: #ff9f0a;
-  filter: drop-shadow(0 0 2px rgba(255, 159, 10, 0.5));
+  fill: #dc283c;
+  filter: drop-shadow(0 0 2px rgba(220, 40, 60, 0.5));
 }
 
 /* Zone background overlays */
