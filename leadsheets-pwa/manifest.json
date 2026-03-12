@@ -1,0 +1,9 @@
+{
+  "name": "Lead Sheets",
+  "short_name": "Lead Sheets",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#0a0a0f",
+  "theme_color": "#0a0a0f",
+  "orientation": "any"
+}
