@@ -13,6 +13,7 @@ let activePresetName = '';  // currently loaded preset name
 const ccState = new Map();   // cc# → { value, groupName, barEl, valEl, labelEl }
 let groups = {};             // groupName → { color, ccs: { cc#: label } }
 let draggingGroupName = null; // track which group is being dragged
+let layoutMode = 'vertical';  // 'vertical' | 'horizontal'
 
 // Palette for group colors
 const GROUP_COLORS = [
@@ -36,12 +37,12 @@ const DEFAULT_GROUPS = {
 /* ── Presets ──────────────────────────────────────────────────────── */
 const PRESETS = {
   'lead groove': {
-    'AM Ring Mod':    { color: 0, icon: 'Modulation',  ccs: { 25: 'Mix', 26: 'Frequency', 27: 'AM Freq' } },
-    'Alpaca Rouge':   { color: 1, icon: 'Distortion',  ccs: { 11: 'Drive', 9: 'High Cut', 10: 'Level' } },
-    'Dynamic Hall':   { color: 2, icon: 'Reverb',      ccs: { 5: 'Decay', 4: 'Mix' } },
-    'Simple Delay':   { color: 3, icon: 'Delay',       ccs: { 19: 'Feedback', 17: 'Mix', 20: 'Scale', 18: 'Time' } },
-    'Simple EQ':      { color: 4, icon: 'EQ',          ccs: { 24: 'High Gain', 22: 'Low Gain', 21: 'Mid Freq', 23: 'Mid Gain' } },
-    'Trinity Chorus': { color: 5, icon: 'Modulation',  ccs: { 12: 'Mix', 13: 'Rate' } },
+    'AM Ring Mod':    { color: 0, icon: 'Modulation',  bypassCC: 7,  ccs: { 25: 'Mix', 26: 'Frequency', 27: 'AM Freq' } },
+    'Alpaca Rouge':   { color: 1, icon: 'Distortion',  bypassCC: 41, ccs: { 11: 'Drive', 9: 'High Cut', 10: 'Level' } },
+    'Dynamic Hall':   { color: 2, icon: 'Reverb',      bypassCC: 44, ccs: { 5: 'Decay', 4: 'Mix' } },
+    'Simple Delay':   { color: 3, icon: 'Delay',       bypassCC: 43, ccs: { 19: 'Feedback', 17: 'Mix', 20: 'Scale', 18: 'Time' } },
+    'Simple EQ':      { color: 4, icon: 'EQ',          bypassCC: 82, ccs: { 24: 'High Gain', 22: 'Low Gain', 21: 'Mid Freq', 23: 'Mid Gain' } },
+    'Trinity Chorus': { color: 5, icon: 'Modulation',  bypassCC: 15, ccs: { 12: 'Mix', 13: 'Rate' } },
   },
 };
 
@@ -93,6 +94,11 @@ function nextColorIndex() {
   return Object.keys(groups).length % GROUP_COLORS.length;
 }
 
+/* ── Bar style helper ─────────────────────────────────────────────── */
+function barStyle(pct, fill, glow) {
+  return 'height:' + pct + '%;--bar-pct:' + pct + '%;background-color:' + fill + ' !important;box-shadow:0 0 12px ' + glow + ';';
+}
+
 /* ── MIDI handling (batched via rAF for smooth updates) ───────────── */
 const pendingUpdates = new Map(); // cc → val
 let rafId = null;
@@ -101,6 +107,15 @@ function onMidiMessage({ data, msgType }) {
   if (msgType !== 'cc') return;
   const cc = data[1];
   const val = data[2];
+
+  // Check if this CC is a bypass toggle for any group
+  for (const [gName, g] of Object.entries(groups)) {
+    if (g.bypassCC !== undefined && parseInt(g.bypassCC) === cc) {
+      const bypassed = val < 64; // 0-63 = bypassed, 64-127 = active
+      const groupEl = groupsContainer.querySelector(`[data-group="${CSS.escape(gName)}"]`);
+      if (groupEl) groupEl.classList.toggle('ccm-group--bypassed', bypassed);
+    }
+  }
 
   if (ccState.has(cc)) {
     // Queue update for next animation frame
@@ -128,7 +143,7 @@ function flushUpdates() {
     if (!state) continue;
     state.value = val;
     const color = getGroupColor(state.groupName);
-    state.barEl.style.cssText = 'height:' + (val / 127 * 100) + '%;background-color:' + color.fill + ' !important;box-shadow:0 0 12px ' + color.glow + ';';
+    state.barEl.style.cssText = barStyle(val / 127 * 100, color.fill, color.glow);
     state.valEl.textContent = val;
   }
   pendingUpdates.clear();
@@ -196,7 +211,7 @@ function recolorGroupBars(groupName) {
   for (const [cc, state] of ccState.entries()) {
     if (state.groupName === groupName) {
       const h = (state.value / 127 * 100);
-      state.barEl.style.cssText = 'height:' + h + '%;background-color:' + color.fill + ' !important;box-shadow:0 0 12px ' + color.glow + ';';
+      state.barEl.style.cssText = barStyle(h, color.fill, color.glow);
     }
   }
 }
@@ -225,6 +240,10 @@ function getOrCreateGroupEl(groupName) {
     header.appendChild(iconEl);
   }
 
+  // Title row — wraps title + color dot together
+  const titleRow = document.createElement('div');
+  titleRow.className = 'ccm-group-title-row';
+
   const titleInput = document.createElement('input');
   titleInput.className = 'ccm-group-title';
   titleInput.type = 'text';
@@ -246,18 +265,61 @@ function getOrCreateGroupEl(groupName) {
   titleInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') titleInput.blur();
   });
+  titleRow.appendChild(titleInput);
 
+  const colorBtn = document.createElement('button');
+  colorBtn.className = 'ccm-group-color-btn';
+  colorBtn.title = 'Change color';
+  colorBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    showColorPicker(header, groupEl);
+  });
+  titleRow.appendChild(colorBtn);
+
+  header.appendChild(titleRow);
+
+  // Bypass CC indicator — small tag showing bypass CC#
+  const bypassTag = document.createElement('span');
+  bypassTag.className = 'ccm-group-bypass-tag';
+  const bcc = groups[groupName]?.bypassCC;
+  bypassTag.textContent = bcc !== undefined ? `BP:${bcc}` : 'BP';
+  bypassTag.title = 'Set bypass CC (click to edit)';
+  bypassTag.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const current = groups[groupName]?.bypassCC;
+    const input = prompt('Bypass CC# for ' + groupName + ':\n(Leave empty to remove)', current !== undefined ? current : '');
+    if (input === null) return; // cancelled
+    const trimmed = input.trim();
+    if (trimmed === '') {
+      delete groups[groupName].bypassCC;
+      bypassTag.textContent = 'BP';
+      // Remove bypassed state
+      groupEl.classList.remove('ccm-group--bypassed');
+    } else {
+      const num = parseInt(trimmed);
+      if (!isNaN(num) && num >= 0 && num <= 127) {
+        groups[groupName].bypassCC = num;
+        bypassTag.textContent = `BP:${num}`;
+      }
+    }
+    saveGroups();
+  });
+  header.appendChild(bypassTag);
+
+  // Remove button (top-right corner)
   const removeBtn = document.createElement('button');
   removeBtn.className = 'ccm-group-remove';
   removeBtn.textContent = '\u00d7';
   removeBtn.title = 'Remove group (CCs move to Unassigned)';
   removeBtn.addEventListener('click', () => removeGroup(groupEl.dataset.group));
-
-  header.appendChild(titleInput);
   header.appendChild(removeBtn);
 
-  // Right-click on header to pick color
+  // Right-click on header or title to pick color
   header.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    showColorPicker(header, groupEl);
+  });
+  titleInput.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     showColorPicker(header, groupEl);
   });
@@ -448,7 +510,7 @@ function addCCToGroup(cc, val, groupName) {
 
   // Apply group color directly to bar via cssText to guarantee override
   const groupColor = getGroupColor(groupName);
-  barFill.style.cssText = 'height:' + (val / 127 * 100) + '%;background-color:' + groupColor.fill + ' !important;box-shadow:0 0 12px ' + groupColor.glow + ';';
+  barFill.style.cssText = barStyle(val / 127 * 100, groupColor.fill, groupColor.glow);
 
   ccState.set(cc, { value: val, groupName, barEl: barFill, valEl, labelEl });
 }
@@ -576,7 +638,7 @@ function moveCCToGroup(cc, targetGroup, beforeEl) {
     // Recolor bar to match new group
     const color = getGroupColor(targetGroup);
     const h = (state.value / 127 * 100);
-    state.barEl.style.cssText = 'height:' + h + '%;background-color:' + color.fill + ' !important;box-shadow:0 0 12px ' + color.glow + ';';
+    state.barEl.style.cssText = barStyle(h, color.fill, color.glow);
     // Save order for old group too
     saveBarOrder(oldGroup);
   }
@@ -776,6 +838,42 @@ function findLaunchControlXL() {
   return input && output ? { inputId: input.id, outputId: output.id, name: input.name } : null;
 }
 
+// Persistent direct listener on LCXL so CC Monitor works without routes
+let _lcxlDirectHandler = null;
+let _lcxlListeningId = null;
+
+function attachLCXLListener() {
+  const lcxl = findLaunchControlXL();
+  if (!lcxl) return;
+  if (_lcxlListeningId === lcxl.inputId) return;
+
+  detachLCXLListener();
+
+  const access = midi.getAccess();
+  if (!access) return;
+  const input = access.inputs.get(lcxl.inputId);
+  if (!input) return;
+
+  _lcxlDirectHandler = (event) => {
+    const data = event.data;
+    if (data.length < 3) return;
+    if ((data[0] & 0xF0) !== 0xB0) return;
+    onMidiMessage({ data, msgType: 'cc' });
+  };
+  input.addEventListener('midimessage', _lcxlDirectHandler);
+  _lcxlListeningId = lcxl.inputId;
+}
+
+function detachLCXLListener() {
+  if (_lcxlListeningId && _lcxlDirectHandler) {
+    const access = midi.getAccess();
+    const input = access && access.inputs.get(_lcxlListeningId);
+    if (input) input.removeEventListener('midimessage', _lcxlDirectHandler);
+  }
+  _lcxlDirectHandler = null;
+  _lcxlListeningId = null;
+}
+
 function pullCCState() {
   const lcxl = findLaunchControlXL();
   const btn = panel.querySelector('#ccm-pull-state');
@@ -792,12 +890,20 @@ function pullCCState() {
     return;
   }
 
-  // Send a SysEx "select template" message for template 0 (Factory 1).
-  // This causes the LCXL to re-transmit all current knob/fader CC values.
-  // Format: F0 00 20 29 02 11 77 <template 0-15> F7
-  const templateIndex = 0; // Factory 1
-  const sysex = new Uint8Array([0xF0, 0x00, 0x20, 0x29, 0x02, 0x11, 0x77, templateIndex, 0xF7]);
-  midi.sendToOutput(lcxl.outputId, sysex);
+  attachLCXLListener();
+
+  // Bounce template selection to force LCXL to re-send CC values.
+  // SysEx: F0 00 20 29 02 11 77 <template 0-15> F7
+  const access = midi.getAccess();
+  const output = access && access.outputs.get(lcxl.outputId);
+  if (output) {
+    try {
+      output.send(new Uint8Array([0xF0, 0x00, 0x20, 0x29, 0x02, 0x11, 0x77, 0x01, 0xF7]));
+      setTimeout(() => {
+        output.send(new Uint8Array([0xF0, 0x00, 0x20, 0x29, 0x02, 0x11, 0x77, 0x00, 0xF7]));
+      }, 100);
+    } catch (e) { /* ignore */ }
+  }
 
   if (btn) {
     btn.textContent = 'Pulled!';
@@ -805,8 +911,22 @@ function pullCCState() {
     setTimeout(() => {
       btn.textContent = 'Pull State';
       btn.classList.remove('ccm-save--confirmed');
-    }, 1200);
+    }, 1500);
   }
+}
+
+/* ── Layout toggle ────────────────────────────────────────────────── */
+function toggleLayout() {
+  layoutMode = layoutMode === 'vertical' ? 'horizontal' : 'vertical';
+  localStorage.setItem('cc-monitor-layout', layoutMode);
+  applyLayout();
+}
+
+function applyLayout() {
+  if (!panel) return;
+  panel.classList.toggle('ccm--horizontal', layoutMode === 'horizontal');
+  const btn = panel.querySelector('#ccm-layout-toggle');
+  if (btn) btn.title = layoutMode === 'vertical' ? 'Switch to horizontal' : 'Switch to vertical';
 }
 
 /* ── Init ─────────────────────────────────────────────────────────── */
@@ -822,8 +942,8 @@ export function init() {
       '<select class="ccm-preset-select" id="ccm-preset-select"></select>' +
       '<button class="btn btn--ghost ccm-save-preset" id="ccm-save-preset">Save</button>' +
       '<button class="btn btn--ghost ccm-save-as-preset" id="ccm-save-as-preset">Save As</button>' +
-      '<span class="ccm-hint">Drag CCs between groups to organize</span>' +
-      '<button class="btn btn--ghost ccm-pull-state" id="ccm-pull-state" title="Pull current knob/fader positions from Launch Control XL">Pull State</button>' +
+      '<button class="btn btn--ghost ccm-layout-toggle" id="ccm-layout-toggle" title="Toggle vertical/horizontal layout">&#9776;</button>' +
+      '<span class="ccm-hint"></span>' +
       '<button class="btn btn--ghost ccm-add-group" id="ccm-add-group">+ Group</button>' +
       '<button class="btn btn--ghost ccm-clear" id="ccm-clear">Clear</button>' +
     '</div>' +
@@ -899,13 +1019,21 @@ export function init() {
   }
 
   panel.querySelector('#ccm-add-group').addEventListener('click', addNewGroup);
+  panel.querySelector('#ccm-layout-toggle').addEventListener('click', toggleLayout);
   panel.querySelector('#ccm-save-preset').addEventListener('click', savePreset);
   panel.querySelector('#ccm-save-as-preset').addEventListener('click', savePresetAs);
-  panel.querySelector('#ccm-pull-state').addEventListener('click', pullCCState);
   panel.querySelector('#ccm-clear').addEventListener('click', clearAll);
   panel.querySelector('#ccm-preset-select').addEventListener('change', (e) => {
     if (e.target.value) loadPreset(e.target.value);
   });
 
+  // Restore saved layout mode
+  layoutMode = localStorage.getItem('cc-monitor-layout') || 'vertical';
+  applyLayout();
+
   bus.on('midi:message', onMidiMessage);
+
+  // Attach direct LCXL listener so CC Monitor works without routes
+  attachLCXLListener();
+  bus.on('midi:devices-changed', () => attachLCXLListener());
 }

@@ -37,9 +37,9 @@
 
 .ccm-clear,
 .ccm-add-group,
+.ccm-layout-toggle,
 .ccm-save-preset,
-.ccm-save-as-preset,
-.ccm-pull-state {
+.ccm-save-as-preset {
   flex-shrink: 0;
   font-size: 11px;
   letter-spacing: 0.5px;
@@ -53,9 +53,9 @@
 
 .ccm-clear:hover,
 .ccm-add-group:hover,
+.ccm-layout-toggle:hover,
 .ccm-save-preset:hover,
-.ccm-save-as-preset:hover,
-.ccm-pull-state:hover {
+.ccm-save-as-preset:hover {
   color: rgba(255, 255, 255, 0.6);
   border-color: rgba(255, 255, 255, 0.15);
   background: rgba(255, 255, 255, 0.04);
@@ -122,7 +122,9 @@
 
   display: flex;
   flex-direction: column;
-  min-width: 100px;
+  min-width: 80px;
+  width: fit-content;
+  flex-shrink: 0;
   background: linear-gradient(180deg, #111115 0%, #0c0c10 100%);
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-top: 1px solid var(--group-border);
@@ -149,44 +151,147 @@
   box-shadow: 3px 0 0 0 var(--group-fill), 3px 0 12px 0 var(--group-glow);
 }
 
-/* ── Group header ────────────────────────────────────────────────── */
+/* Bypassed state — grayed out */
+.ccm-group--bypassed {
+  opacity: 0.35;
+  filter: saturate(0.1);
+  border-top-color: rgba(255, 255, 255, 0.08);
+  transition: opacity 300ms ease, filter 300ms ease;
+}
+
+/* ── Group header (icon + title + controls) ─────────────────────── */
 .ccm-group-header {
   cursor: grab;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  justify-content: center;
+  position: relative;
+  padding: 8px 10px 0;
   flex-shrink: 0;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.025) 0%, transparent 100%);
-  margin-bottom: 0;
+  min-height: 28px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
-/* Category icon */
+/* Category icon — centered in header */
 .ccm-group-icon {
-  width: 16px;
-  height: 16px;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
   object-fit: contain;
-  opacity: 0.5;
-  filter: grayscale(0.3);
+  opacity: 0.65;
+  filter: grayscale(0.15);
 }
 
-.ccm-group-title {
-  flex: 1;
+/* Close button — top-right corner, visible on group hover */
+.ccm-group-remove {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.08);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0 3px;
+  line-height: 1;
+  transition: color 150ms ease, opacity 150ms ease;
+  z-index: 1;
+  opacity: 0;
+}
+
+.ccm-group:hover .ccm-group-remove {
+  opacity: 1;
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.ccm-group-remove:hover {
+  color: rgba(255, 80, 80, 0.7) !important;
+  opacity: 1 !important;
+}
+
+/* Title row — holds title + color dot together */
+.ccm-group-title-row {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   min-width: 0;
+}
+
+/* Color button — right of title */
+.ccm-group-color-btn {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  background: var(--group-fill);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: transform 120ms ease, border-color 120ms ease, opacity 150ms ease;
+  opacity: 0;
+}
+
+.ccm-group:hover .ccm-group-color-btn {
+  opacity: 1;
+}
+
+.ccm-group-color-btn:hover {
+  transform: scale(1.4);
+  border-color: rgba(255, 255, 255, 0.5);
+  opacity: 1 !important;
+}
+
+/* Bypass CC tag */
+.ccm-group-bypass-tag {
+  position: absolute;
+  bottom: 3px;
+  right: 3px;
+  font-family: var(--font-mono);
+  font-size: 7px;
+  color: rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  padding: 1px 3px;
+  border-radius: 2px;
+  letter-spacing: 0.3px;
+  opacity: 0;
+  transition: opacity 150ms ease, color 150ms ease;
+}
+
+.ccm-group:hover .ccm-group-bypass-tag {
+  opacity: 1;
+}
+
+.ccm-group-bypass-tag:hover {
+  color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* ── Group title (wraps below icon in vertical, inline in horizontal) */
+.ccm-group-title {
+  flex: 1 1 0;
+  min-width: 0;
+  width: 0;
+  box-sizing: border-box;
   background: transparent;
   border: 1px solid transparent;
   border-radius: 2px;
   color: var(--group-fill);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
-  padding: 2px 4px;
+  padding: 2px 4px 4px;
   outline: none;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.8px;
+  text-align: center;
   transition: border-color 150ms ease;
-  opacity: 0.7;
+  opacity: 0.6;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  flex-shrink: 0;
 }
 
 .ccm-group-title:hover {
@@ -200,25 +305,10 @@
   opacity: 1;
 }
 
-.ccm-group-remove {
-  background: none;
-  border: none;
-  color: rgba(255, 255, 255, 0.15);
-  font-size: 14px;
-  cursor: pointer;
-  padding: 0 2px;
-  line-height: 1;
-  transition: color 100ms ease;
-}
-
-.ccm-group-remove:hover {
-  color: rgba(255, 80, 80, 0.6);
-}
-
 /* ── Bars row ────────────────────────────────────────────────────── */
 .ccm-bars {
   display: flex;
-  gap: 1px;
+  gap: 8px;
   flex: 1;
   align-items: stretch;
   min-height: 0;
@@ -231,9 +321,10 @@
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  min-width: 32px;
+  width: 38px;
+  flex-shrink: 0;
+  flex-grow: 0;
   cursor: grab;
-  flex: 1;
   padding: 0 2px;
   transition: background 100ms ease;
   border-radius: 2px;
@@ -320,7 +411,7 @@
   border: 1px solid transparent;
   border-radius: 2px;
   color: rgba(255, 255, 255, 0.45);
-  font-size: 9px;
+  font-size: 11px;
   padding: 2px 3px;
   text-align: center;
   outline: none;
@@ -385,6 +476,168 @@
 .ccm-color-swatch--active {
   border-color: rgba(255, 255, 255, 0.8);
   box-shadow: 0 0 6px rgba(255, 255, 255, 0.2);
+}
+
+/* ── Horizontal layout mode ──────────────────────────────────────── */
+
+/* Groups stack vertically and scroll */
+.ccm--horizontal .ccm-groups {
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  align-items: stretch;
+  gap: 8px;
+}
+
+/* Group stays a vertical card but full-width */
+.ccm--horizontal .ccm-group {
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+}
+
+/* Header: no-wrap row — icon, title, controls all inline */
+.ccm--horizontal .ccm-group-header {
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  padding: 4px 10px;
+  gap: 8px;
+  min-height: 0;
+}
+
+/* Icon inline, smaller */
+.ccm--horizontal .ccm-group-icon {
+  width: 22px;
+  height: 22px;
+}
+
+/* Close button: inline, pushed right */
+.ccm--horizontal .ccm-group-remove {
+  position: static;
+  margin-left: auto;
+  opacity: 0;
+}
+
+/* Title row: inline in horizontal, don't stretch */
+.ccm--horizontal .ccm-group-title-row {
+  flex-basis: auto;
+  flex: 0 1 auto;
+  justify-content: flex-start;
+}
+
+/* Color button: inline */
+.ccm--horizontal .ccm-group-color-btn {
+  opacity: 0;
+}
+
+.ccm--horizontal .ccm-group:hover .ccm-group-remove,
+.ccm--horizontal .ccm-group:hover .ccm-group-color-btn {
+  opacity: 1;
+}
+
+/* Title: inline, left-aligned, readable */
+.ccm--horizontal .ccm-group-title {
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 60px;
+  max-width: none;
+  padding: 2px 6px;
+  text-align: left;
+  font-size: 11px;
+  letter-spacing: 1px;
+  opacity: 0.8;
+}
+
+/* Bars flow as horizontal rows */
+.ccm--horizontal .ccm-bars {
+  flex-direction: column;
+  flex: 1;
+  gap: 1px;
+  padding: 2px 10px 4px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Each bar becomes a horizontal row */
+.ccm--horizontal .ccm-bar-col {
+  flex-direction: row;
+  width: 100%;
+  height: 20px;
+  gap: 6px;
+  padding: 0;
+  align-items: center;
+}
+
+/* CC tag — leftmost */
+.ccm--horizontal .ccm-bar-cc {
+  min-width: 20px;
+  text-align: right;
+  flex-shrink: 0;
+  order: -2;
+  font-size: 9px;
+  opacity: 0.4;
+}
+
+/* Label — after CC tag, compact width */
+.ccm--horizontal .ccm-bar-label {
+  max-width: 140px;
+  width: 11ch;
+  min-width: 0;
+  flex-shrink: 0;
+  text-align: left;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  order: -1;
+  padding: 2px 4px;
+}
+
+/* Bar track becomes horizontal */
+.ccm--horizontal .ccm-bar-track {
+  flex: 1;
+  min-height: 0;
+  height: 14px;
+  max-width: none;
+  flex-direction: row;
+  justify-content: flex-start;
+}
+
+/* Bar fill grows horizontally */
+.ccm--horizontal .ccm-bar-fill {
+  height: 100% !important;
+  width: var(--bar-pct, 0%);
+  min-width: 0;
+}
+
+/* Value readout — rightmost */
+.ccm--horizontal .ccm-bar-value {
+  position: static;
+  transform: none;
+  font-size: 10px;
+  min-width: 26px;
+  text-align: right;
+  flex-shrink: 0;
+  text-shadow: none;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* Drop indicators for horizontal */
+.ccm--horizontal .ccm-drop-before {
+  border-left: none;
+  border-top: 1px solid var(--group-fill, rgba(255, 255, 255, 0.2));
+}
+
+.ccm--horizontal .ccm-drop-after {
+  border-right: none;
+  border-bottom: 1px solid var(--group-fill, rgba(255, 255, 255, 0.2));
+}
+
+/* Group drag indicators */
+.ccm--horizontal .ccm-group--drop-before {
+  box-shadow: 0 -3px 0 0 var(--group-fill), 0 -3px 12px 0 var(--group-glow);
+}
+
+.ccm--horizontal .ccm-group--drop-after {
+  box-shadow: 0 3px 0 0 var(--group-fill), 0 3px 12px 0 var(--group-glow);
 }
 
 /* ── Save confirmation flash ─────────────────────────────────────── */

@@ -7,6 +7,31 @@ import * as pcEditor from './pc-editor.js';
 
 const STORAGE_KEY = 'midi-router-presets';
 
+// Built-in default preset: Launch Control XL → Helix
+const BUILTIN_PRESETS = {
+  'LCXL → Helix': {
+    routes: [{
+      inputId: null,
+      outputId: null,
+      inputName: 'Launch Control XL',
+      outputName: 'Helix',
+      zone: 'all',
+      noteLow: 0,
+      noteHigh: 127,
+      channelIn: null,
+      channelOut: null,
+      passCC: true,
+      passPitchBend: true,
+      passProgramChange: true,
+      passAftertouch: true,
+      enabled: true,
+      color: null,
+    }],
+    splits: null,
+    programChanges: [],
+  },
+};
+
 const dropdown   = $('#preset-select');
 const saveBtn    = $('#preset-save');
 const deleteBtn  = $('#preset-delete');
@@ -40,9 +65,14 @@ function saveToStorage() {
 }
 
 // ── Dropdown UI ────────────────────────────────────────────────────
+function getAllPresets() {
+  return { ...BUILTIN_PRESETS, ...presets };
+}
+
 function refreshDropdown() {
   dropdown.innerHTML = '';
-  const names = Object.keys(presets).sort();
+  const all = getAllPresets();
+  const names = Object.keys(all).sort();
 
   if (names.length === 0) {
     dropdown.appendChild(new Option('No presets', '', true, true));
@@ -53,11 +83,24 @@ function refreshDropdown() {
   dropdown.appendChild(new Option('— Select preset —', '', true, true));
   dropdown.options[0].disabled = true;
 
-  for (const name of names) {
+  // Built-in presets first
+  const builtInNames = Object.keys(BUILTIN_PRESETS).sort();
+  for (const name of builtInNames) {
     dropdown.appendChild(new Option(name, name));
   }
 
-  if (lastUsed && presets[lastUsed]) {
+  // User presets
+  const userNames = Object.keys(presets).sort();
+  if (userNames.length > 0 && builtInNames.length > 0) {
+    const sep = new Option('──────────', '');
+    sep.disabled = true;
+    dropdown.appendChild(sep);
+  }
+  for (const name of userNames) {
+    dropdown.appendChild(new Option(name, name));
+  }
+
+  if (lastUsed && all[lastUsed]) {
     dropdown.value = lastUsed;
   }
 }
@@ -82,7 +125,12 @@ function savePreset() {
 
 function deletePreset() {
   const name = dropdown.value;
-  if (!name || !presets[name]) return;
+  if (!name) return;
+  if (BUILTIN_PRESETS[name]) {
+    showToast('Cannot delete a built-in preset');
+    return;
+  }
+  if (!presets[name]) return;
   if (!confirm(`Delete preset "${name}"?`)) return;
 
   delete presets[name];
@@ -93,7 +141,8 @@ function deletePreset() {
 }
 
 function applyPreset(name) {
-  const preset = presets[name];
+  const all = getAllPresets();
+  const preset = all[name];
   if (!preset) return;
   // Restore splits FIRST so zone ranges are available for route restore
   if (preset.splits) {
@@ -108,20 +157,31 @@ function applyPreset(name) {
   sendProgramChanges(preset.programChanges || []);
 
   lastUsed = name;
-  // Re-save preset with current route data (upgrades legacy presets with zone field)
-  presets[name] = {
-    routes: router.serialiseRoutes(),
-    splits: splits.serialise(),
-    programChanges: pcEditor.getProgramChanges(),
-  };
+  // Re-save user preset with current route data (upgrades legacy presets with zone field)
+  // Don't overwrite built-in presets
+  if (!BUILTIN_PRESETS[name]) {
+    presets[name] = {
+      routes: router.serialiseRoutes(),
+      splits: splits.serialise(),
+      programChanges: pcEditor.getProgramChanges(),
+    };
+  }
   saveToStorage();
   console.log(`[Presets] Applied "${name}": ${(preset.routes || []).length} routes, ${(preset.programChanges || []).length} PCs, splits: ${JSON.stringify(preset.splits || 'none')}`);
 }
 
 function autoRestore() {
-  if (lastUsed && presets[lastUsed]) {
+  const all = getAllPresets();
+  if (lastUsed && all[lastUsed]) {
     dropdown.value = lastUsed;
     applyPreset(lastUsed);
+  } else {
+    // No last-used preset — auto-apply first built-in preset as default
+    const defaultName = Object.keys(BUILTIN_PRESETS)[0];
+    if (defaultName) {
+      dropdown.value = defaultName;
+      applyPreset(defaultName);
+    }
   }
 }
 
@@ -213,7 +273,8 @@ export function init() {
 
   dropdown.addEventListener('change', () => {
     const name = dropdown.value;
-    if (name && presets[name]) applyPreset(name);
+    const all = getAllPresets();
+    if (name && all[name]) applyPreset(name);
   });
 
   // Auto-restore after MIDI devices are ready

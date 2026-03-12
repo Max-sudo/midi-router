@@ -46,7 +46,7 @@ def get_status() -> dict:
 
 
 def _find_all_launchpad_ports():
-    """Scan MIDI inputs for all Launchpad ports."""
+    """Scan MIDI inputs for Launchpad ports (prefer MIDI port, skip DAW/DIN duplicates)."""
     if not rtmidi:
         print("[Launchpad] rtmidi not available", flush=True)
         return []
@@ -55,14 +55,24 @@ def _find_all_launchpad_ports():
     count = midi_in.get_port_count()
     print(f"[Launchpad] Scanning {count} MIDI inputs...", flush=True)
 
-    results = []
+    candidates = []
     for i in range(count):
         name = midi_in.get_port_name(i)
         print(f"[Launchpad]   Port {i}: {name}", flush=True)
         if any(kw in name.lower() for kw in LAUNCHPAD_KEYWORDS):
-            results.append((i, name))
+            candidates.append((i, name))
 
-    return results
+    if not candidates:
+        return []
+
+    # Prefer the MIDI port over DAW/DIN to avoid duplicate note-on events.
+    # Only open one port per device to prevent actions firing twice.
+    midi_ports = [(i, n) for i, n in candidates if "daw" not in n.lower() and "din" not in n.lower()]
+    if midi_ports:
+        return midi_ports
+
+    # Fallback: use the first candidate only
+    return [candidates[0]]
 
 
 def _find_launchpad_output():

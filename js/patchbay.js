@@ -564,6 +564,14 @@ export function init() {
   window.addEventListener('resize', onResize);
 
   bus.on('midi:ready', renderPorts);
+
+  // Redraw cables when switching to MIDI tab (cables created while tab hidden have zero coords)
+  bus.on('tab:changed', (tabId) => {
+    if (tabId === 'midi' && cables.size > 0) {
+      requestAnimationFrame(() => updateAllCables());
+    }
+  });
+
   bus.on('midi:devices-changed', (devices) => {
     const savedInputId = activatedInputId;
     deactivateInput();
