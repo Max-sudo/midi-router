@@ -66,9 +66,10 @@
   background: var(--bg-surface);
 }
 
-.ls-filter-btn--active.ls-filter-btn--ballad { border-color: var(--accent-cyan); color: var(--accent-cyan); background: rgba(0,240,255,0.08); }
-.ls-filter-btn--active.ls-filter-btn--mid    { border-color: var(--accent-magenta); color: var(--accent-magenta); background: rgba(191,90,242,0.08); }
-.ls-filter-btn--active.ls-filter-btn--up     { border-color: #f0b429; color: #f0b429; background: rgba(240,180,41,0.08); }
+.ls-filter-btn--active.ls-filter-btn--ballad  { border-color: var(--accent-cyan); color: var(--accent-cyan); background: rgba(0,240,255,0.08); }
+.ls-filter-btn--active.ls-filter-btn--mid     { border-color: var(--accent-magenta); color: var(--accent-magenta); background: rgba(191,90,242,0.08); }
+.ls-filter-btn--active.ls-filter-btn--up      { border-color: #f0b429; color: #f0b429; background: rgba(240,180,41,0.08); }
+.ls-filter-btn--active.ls-filter-btn--learned { border-color: #34d399; color: #34d399; background: rgba(52,211,153,0.08); }
 
 /* ── Song list ────────────────────────────────────────────────────── */
 .ls-list {
@@ -118,9 +119,10 @@
   background: transparent;
 }
 
-.ls-tag-dot--ballad { background: var(--accent-cyan); }
-.ls-tag-dot--mid    { background: var(--accent-magenta); }
-.ls-tag-dot--up     { background: #f0b429; }
+.ls-tag-dot--ballad  { background: var(--accent-cyan); }
+.ls-tag-dot--mid     { background: var(--accent-magenta); }
+.ls-tag-dot--up      { background: #f0b429; }
+.ls-tag-dot--learned { background: #34d399; }
 
 /* ── Set lists section ────────────────────────────────────────────── */
 .ls-setlists-section {
@@ -228,9 +230,10 @@
   transition: all var(--transition-base);
 }
 
-.ls-tag-btn--active.ls-tag-btn--ballad { border-color: var(--accent-cyan); color: var(--accent-cyan); background: rgba(0,240,255,0.08); }
-.ls-tag-btn--active.ls-tag-btn--mid    { border-color: var(--accent-magenta); color: var(--accent-magenta); background: rgba(191,90,242,0.08); }
-.ls-tag-btn--active.ls-tag-btn--up     { border-color: #f0b429; color: #f0b429; background: rgba(240,180,41,0.08); }
+.ls-tag-btn--active.ls-tag-btn--ballad  { border-color: var(--accent-cyan); color: var(--accent-cyan); background: rgba(0,240,255,0.08); }
+.ls-tag-btn--active.ls-tag-btn--mid     { border-color: var(--accent-magenta); color: var(--accent-magenta); background: rgba(191,90,242,0.08); }
+.ls-tag-btn--active.ls-tag-btn--up      { border-color: #f0b429; color: #f0b429; background: rgba(240,180,41,0.08); }
+.ls-tag-btn--active.ls-tag-btn--learned { border-color: #34d399; color: #34d399; background: rgba(52,211,153,0.08); }
 
 .ls-tag-btn:not(.ls-tag-btn--active):hover { color: var(--text-primary); }
 
@@ -332,9 +335,12 @@
   padding: var(--space-2) var(--space-4);
   font-size: var(--font-size-sm);
   transition: background var(--transition-base);
-  cursor: default;
+  cursor: grab;
   user-select: none;
+  touch-action: none;
 }
+
+.ls-setlist-row:active { cursor: grabbing; }
 
 .ls-setlist-row:hover { background: var(--bg-elevated); }
 .ls-setlist-row--dragging { opacity: 0.4; }

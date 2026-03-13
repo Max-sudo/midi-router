@@ -126,12 +126,12 @@ const FILES = [
   'Summertime.png',
 ];
 
-const TAG_LABELS = { ballad: 'Ballad', mid: 'Mid', up: 'Up' };
+const TAG_LABELS = { ballad: 'Ballad', mid: 'Mid', up: 'Up', learned: 'Learned' };
 
 const sheets = FILES
   .map(f => ({
     title: f.replace('.png', '').replace(/_/g, ' '),
-    url: `/assets/leadsheets/${encodeURIComponent(f)}`,
+    url: `assets/leadsheets/${encodeURIComponent(f)}`,
   }))
   .sort((a, b) => a.title.localeCompare(b.title));
 
@@ -211,7 +211,7 @@ function renderList() {
 
     const dots = document.createElement('span');
     dots.className = 'ls-tag-dots';
-    for (const tag of ['ballad', 'mid', 'up']) {
+    for (const tag of ['ballad', 'mid', 'up', 'learned']) {
       const dot = document.createElement('span');
       dot.className = `ls-tag-dot ls-tag-dot--${songTags.includes(tag) ? tag : 'none'}`;
       dots.appendChild(dot);
@@ -344,7 +344,7 @@ function renderSetListEditor() {
     const songTags = getTags(title);
     const dots = document.createElement('span');
     dots.className = 'ls-tag-dots';
-    for (const tag of ['ballad', 'mid', 'up']) {
+    for (const tag of ['ballad', 'mid', 'up', 'learned']) {
       const dot = document.createElement('span');
       dot.className = `ls-tag-dot ls-tag-dot--${songTags.includes(tag) ? tag : 'none'}`;
       dots.appendChild(dot);
@@ -353,7 +353,8 @@ function renderSetListEditor() {
     const name = document.createElement('span');
     name.className = 'ls-setlist-row__name';
     name.textContent = title;
-    name.addEventListener('click', () => {
+    name.addEventListener('click', (e) => {
+      e.stopPropagation();
       const sheet = sheets.find(s => s.title === title);
       if (sheet) selectSheet(sheet);
     });
@@ -361,13 +362,15 @@ function renderSetListEditor() {
     const removeBtn = document.createElement('button');
     removeBtn.className = 'ls-setlist-row__btn ls-setlist-row__btn--remove';
     removeBtn.textContent = '✕';
-    removeBtn.addEventListener('click', () => {
+    removeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
       sl.songs.splice(i, 1);
       saveSetLists(setLists);
       renderSetListEditor();
     });
 
-    // Drag events
+    // Desktop drag events
     row.addEventListener('dragstart', (e) => {
       dragSrcIndex = i;
       row.classList.add('ls-setlist-row--dragging');
@@ -395,6 +398,43 @@ function renderSetListEditor() {
       dragSrcIndex = null;
       saveSetLists(setLists);
       renderSetListEditor();
+    });
+
+    // Touch drag events (for mobile/tablet)
+    row.addEventListener('touchstart', (e) => {
+      // Don't start drag on remove button or song name link
+      if (e.target.closest('.ls-setlist-row__btn') || e.target.closest('.ls-setlist-row__name')) return;
+      dragSrcIndex = i;
+      row.classList.add('ls-setlist-row--dragging');
+    }, { passive: true });
+    row.addEventListener('touchmove', (e) => {
+      if (dragSrcIndex === null) return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+      const targetRow = target?.closest('.ls-setlist-row');
+      for (const r of setListSongsEl.querySelectorAll('.ls-setlist-row')) {
+        r.classList.remove('ls-setlist-row--over');
+      }
+      if (targetRow) targetRow.classList.add('ls-setlist-row--over');
+    }, { passive: false });
+    row.addEventListener('touchend', (e) => {
+      if (dragSrcIndex === null) return;
+      row.classList.remove('ls-setlist-row--dragging');
+      const touch = e.changedTouches[0];
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+      const targetRow = target?.closest('.ls-setlist-row');
+      const targetIndex = targetRow ? parseInt(targetRow.dataset.index) : null;
+      for (const r of setListSongsEl.querySelectorAll('.ls-setlist-row')) {
+        r.classList.remove('ls-setlist-row--over');
+      }
+      if (targetIndex !== null && targetIndex !== dragSrcIndex) {
+        const [moved] = sl.songs.splice(dragSrcIndex, 1);
+        sl.songs.splice(targetIndex, 0, moved);
+        saveSetLists(setLists);
+        renderSetListEditor();
+      }
+      dragSrcIndex = null;
     });
 
     row.appendChild(handle);
@@ -446,6 +486,7 @@ export function init() {
           <button class="ls-filter-btn ls-filter-btn--ballad" data-tag="ballad">Ballad</button>
           <button class="ls-filter-btn ls-filter-btn--mid" data-tag="mid">Mid</button>
           <button class="ls-filter-btn ls-filter-btn--up" data-tag="up">Up</button>
+          <button class="ls-filter-btn ls-filter-btn--learned" data-tag="learned">Learned</button>
         </div>
         <div class="ls-list" id="ls-list"></div>
       </aside>
