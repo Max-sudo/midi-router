@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="css/home.css">
   <link rel="stylesheet" href="css/mealprep.css">
   <link rel="stylesheet" href="css/leadsheets.css">
+  <link rel="stylesheet" href="css/chat.css">
   <link rel="stylesheet" href="css/ccmonitor.css">
   <link rel="stylesheet" href="css/midimap.css">
 </head>
@@ -29,12 +30,13 @@
     <header class="header">
       <nav class="header__tabs">
         <button class="tab-btn tab-btn--active" data-tab="home">Home</button>
+        <button class="tab-btn" data-tab="chat">Chat</button>
         <button class="tab-btn" data-tab="midi">MIDI Router</button>
         <button class="tab-btn" data-tab="avsync">AV Sync</button>
         <button class="tab-btn" data-tab="launchpad">Launchpad</button>
         <button class="tab-btn" data-tab="mealprep">Meal Prep</button>
         <button class="tab-btn" data-tab="leadsheets">Lead Sheets</button>
-        <button class="tab-btn" data-tab="ccmonitor">CC Monitor</button>
+        <button class="tab-btn" data-tab="ccmonitor">Helix Monitor</button>
         <button class="tab-btn" data-tab="midimap">MIDI Map</button>
       </nav>
       <div class="header__controls">
@@ -72,6 +74,11 @@
       <div class="home-panel" id="home-panel">
         <!-- Built dynamically by js/home.js -->
       </div>
+    </div>
+
+    <!-- Tab: Chat -->
+    <div class="tab-content" id="tab-chat" hidden>
+      <div class="chat-panel" id="chat-panel"></div>
     </div>
 
     <!-- Tab: MIDI Router -->
@@ -145,7 +152,7 @@
       <div class="leadsheets-panel" id="leadsheets-panel"></div>
     </div>
 
-    <!-- Tab: CC Monitor -->
+    <!-- Tab: Helix Monitor -->
     <div class="tab-content" id="tab-ccmonitor" hidden>
       <div class="ccmonitor-panel" id="ccmonitor-panel"></div>
     </div>

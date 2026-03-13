@@ -1,4 +1,4 @@
-// ── CC Monitor: real-time MIDI CC display ────────────────────────────
+// ── Helix Monitor: real-time MIDI CC display ─────────────────────────
 import { bus, $ } from './utils.js';
 import * as midi from './midi.js';
 
@@ -78,7 +78,16 @@ function loadGroups() {
 }
 
 function saveGroups() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(groups));
+  // Embed live CC values into groups before saving
+  const toSave = JSON.parse(JSON.stringify(groups));
+  for (const [cc, state] of ccState.entries()) {
+    const g = toSave[state.groupName];
+    if (g && g.ccs && g.ccs[cc] !== undefined) {
+      const label = typeof g.ccs[cc] === 'object' ? g.ccs[cc].label : (g.ccs[cc] || '');
+      toSave[state.groupName].ccs[cc] = { label, value: state.value };
+    }
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
 }
 
 function getGroupColor(groupName) {
@@ -96,7 +105,7 @@ function nextColorIndex() {
 
 /* ── Bar style helper ─────────────────────────────────────────────── */
 function barStyle(pct, fill, glow) {
-  return 'height:' + pct + '%;--bar-pct:' + pct + '%;background-color:' + fill + ' !important;box-shadow:0 0 12px ' + glow + ';';
+  return 'height:' + pct + '%;--bar-pct:' + pct + '%;--group-fill:' + fill + ';--group-glow:' + glow + ';';
 }
 
 /* ── MIDI handling (batched via rAF for smooth updates) ───────────── */
@@ -484,7 +493,8 @@ function addCCToGroup(cc, val, groupName) {
   const labelEl = document.createElement('input');
   labelEl.className = 'ccm-bar-label';
   labelEl.type = 'text';
-  const savedLabel = groups[groupName]?.ccs?.[cc] || '';
+  const ccEntry = groups[groupName]?.ccs?.[cc];
+  const savedLabel = (typeof ccEntry === 'object' && ccEntry !== null) ? (ccEntry.label || '') : (ccEntry || '');
   labelEl.value = savedLabel;
   labelEl.placeholder = 'CC ' + cc;
   labelEl.addEventListener('input', () => {
@@ -670,7 +680,9 @@ function addCCsForGroup(gName) {
     if (!order.includes(cc)) order.push(cc);
   }
   for (const cc of order) {
-    addCCToGroup(cc, 0, gName);
+    const entry = g.ccs[cc];
+    const val = (typeof entry === 'object' && entry !== null) ? (entry.value || 0) : 0;
+    addCCToGroup(cc, val, gName);
   }
 }
 
@@ -706,13 +718,14 @@ function getAllPresets() {
 function rebuildPresetDropdown(selectValue) {
   const sel = panel.querySelector('#ccm-preset-select');
   if (!sel) return;
-  const all = getAllPresets();
   let html = '<option value="">— Presets —</option>';
   const builtIn = Object.keys(PRESETS);
-  const user = Object.keys(userPresets);
+  // Show built-in presets (skip if user has a preset with the same name)
   for (const name of builtIn) {
+    if (userPresets[name]) continue;
     html += '<option value="' + name + '">' + name.charAt(0).toUpperCase() + name.slice(1) + '</option>';
   }
+  const user = Object.keys(userPresets);
   if (user.length) {
     html += '<option disabled>──────────</option>';
     for (const name of user) {
@@ -748,7 +761,16 @@ function snapshotGroups() {
   for (const gName of Object.keys(groups)) {
     saveBarOrder(gName);
   }
-  return JSON.parse(JSON.stringify(groups));
+  // Include live CC values in the snapshot
+  const snap = JSON.parse(JSON.stringify(groups));
+  for (const [cc, state] of ccState.entries()) {
+    const g = snap[state.groupName];
+    if (g && g.ccs && g.ccs[cc] !== undefined) {
+      const label = typeof g.ccs[cc] === 'object' ? g.ccs[cc].label : g.ccs[cc];
+      g.ccs[cc] = { label: label || '', value: state.value };
+    }
+  }
+  return snap;
 }
 
 function flashSaveConfirmation(btnEl) {
@@ -938,7 +960,7 @@ export function init() {
 
   panel.innerHTML =
     '<div class="ccm-toolbar">' +
-      '<span class="ccm-title">CC Monitor</span>' +
+      '<span class="ccm-title">Helix Monitor</span>' +
       '<select class="ccm-preset-select" id="ccm-preset-select"></select>' +
       '<button class="btn btn--ghost ccm-save-preset" id="ccm-save-preset">Save</button>' +
       '<button class="btn btn--ghost ccm-save-as-preset" id="ccm-save-as-preset">Save As</button>' +

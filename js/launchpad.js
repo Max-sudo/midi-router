@@ -43,6 +43,7 @@ const PAD_COLORS = [
 
 const ACTION_TYPES = [
   { value: 'open_app', label: 'Open App' },
+  { value: 'open_url', label: 'Open URL' },
   { value: 'keyboard_shortcut', label: 'Keyboard Shortcut' },
   { value: 'applescript', label: 'AppleScript' },
   { value: 'shell', label: 'Shell Command' },
@@ -469,6 +470,30 @@ function buildParamsFields(container, actionType, params) {
     textarea.value = params.script || '';
     field.appendChild(textarea);
     container.appendChild(field);
+  } else if (actionType === 'open_url') {
+    const urlField = createElement('div', { className: 'field' });
+    urlField.appendChild(createElement('label', { className: 'field__label', textContent: 'URL' }));
+    const urlInput = createElement('input', {
+      type: 'text',
+      className: 'field__input',
+      placeholder: 'https://mail.google.com/mail/u/0/',
+      value: params.url || '',
+      name: 'url',
+    });
+    urlField.appendChild(urlInput);
+    container.appendChild(urlField);
+
+    const browserField = createElement('div', { className: 'field' });
+    browserField.appendChild(createElement('label', { className: 'field__label', textContent: 'Browser' }));
+    const browserInput = createElement('input', {
+      type: 'text',
+      className: 'field__input',
+      placeholder: 'Brave Browser',
+      value: params.browser || 'Brave Browser',
+      name: 'browser',
+    });
+    browserField.appendChild(browserInput);
+    container.appendChild(browserField);
   } else if (actionType === 'shell') {
     const field = createElement('div', { className: 'field' });
     field.appendChild(createElement('label', { className: 'field__label', textContent: 'Command' }));
@@ -767,6 +792,9 @@ function autoLabel(actionType, params) {
   if (actionType === 'open_app') return params.app_name || 'App';
   if (actionType === 'keyboard_shortcut') return formatShortcut(params.keys || '');
   if (actionType === 'applescript') return 'Script';
+  if (actionType === 'open_url') {
+    try { return new URL(params.url).hostname.replace('www.', ''); } catch { return params.url || 'URL'; }
+  }
   if (actionType === 'shell') return params.command?.split(' ')[0] || 'Shell';
   if (actionType === 'workspace') {
     const desktop = params.desktop ? `D${params.desktop}` : '';
@@ -792,6 +820,9 @@ function getParamsFromContainer(container, actionType) {
     params.keys = container.querySelector('[name="keys"]')?.value || '';
   } else if (actionType === 'applescript') {
     params.script = container.querySelector('[name="script"]')?.value || '';
+  } else if (actionType === 'open_url') {
+    params.url = container.querySelector('[name="url"]')?.value || '';
+    params.browser = container.querySelector('[name="browser"]')?.value || 'Brave Browser';
   } else if (actionType === 'shell') {
     params.command = container.querySelector('[name="command"]')?.value || '';
   } else if (actionType === 'workspace') {

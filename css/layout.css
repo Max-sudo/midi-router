@@ -4,7 +4,6 @@
   height: 100vh;
   width: 100vw;
   overflow: hidden;
-  min-width: 800px;
 }
 
 /* Header */
@@ -142,9 +141,13 @@
 /* Patch Bay */
 .patchbay {
   display: grid;
-  grid-template-columns: minmax(180px, max-content) 1fr minmax(180px, max-content);
+  grid-template-columns: 1fr 2fr 1fr;
   overflow: hidden;
   position: relative;
+}
+
+.patchbay > * {
+  min-width: 0;
 }
 
 .patchbay__canvas-wrapper {
@@ -276,5 +279,5 @@
 }
 
 @media (max-width: 1000px) {
-  .patchbay { grid-template-columns: minmax(140px, max-content) 1fr minmax(140px, max-content); }
+  .patchbay { grid-template-columns: 1fr 1.5fr 1fr; }
 }

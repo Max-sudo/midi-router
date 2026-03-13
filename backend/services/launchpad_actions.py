@@ -120,12 +120,46 @@ def execute(action: dict) -> dict:
             return _run_applescript(params.get("script", ""))
         elif action_type == "shell":
             return _run_shell(params.get("command", ""))
+        elif action_type == "open_url":
+            return _open_url(params.get("url", ""), params.get("browser", "Brave Browser"))
         elif action_type == "workspace":
             return _run_workspace(params)
         else:
             return {"success": False, "output": "", "error": f"Unknown action type: {action_type}"}
     except Exception as e:
         return {"success": False, "output": "", "error": str(e)}
+
+
+def _open_url(url: str, browser: str = "Brave Browser") -> dict:
+    """Open a URL, reusing an existing tab if the URL is already open."""
+    if not url:
+        return {"success": False, "output": "", "error": "No URL specified"}
+
+    # AppleScript to find and activate an existing tab, or open a new one
+    # Match on URL prefix so mail.google.com/mail/u/0 matches even with #inbox etc.
+    script = f'''
+    tell application "{browser}"
+        activate
+        set found to false
+        repeat with w in windows
+            set tabIndex to 0
+            repeat with t in tabs of w
+                set tabIndex to tabIndex + 1
+                if URL of t starts with "{url}" then
+                    set active tab index of w to tabIndex
+                    set index of w to 1
+                    set found to true
+                    exit repeat
+                end if
+            end repeat
+            if found then exit repeat
+        end repeat
+        if not found then
+            tell front window to make new tab with properties {{URL:"{url}"}}
+        end if
+    end tell
+    '''
+    return _run_applescript(script)
 
 
 def _open_app(app_name: str) -> dict:

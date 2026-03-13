@@ -12,6 +12,7 @@ import * as pcEditor from './pc-editor.js';
 import * as avsync from './avsync.js';
 import * as launchpad from './launchpad.js';
 import * as home from './home.js';
+import * as chat from './chat.js';
 import * as mealprep from './mealprep.js';
 import * as leadsheets from './leadsheets.js';
 import * as ccmonitor from './ccmonitor.js';
@@ -34,6 +35,7 @@ async function boot() {
   // 2. Init modules (they subscribe to bus events internally)
   tabs.init();
   home.init();
+  chat.init();
   splits.init();
   patchbay.init();
   router.init();

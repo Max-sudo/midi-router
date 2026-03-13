@@ -352,8 +352,8 @@
   max-width: 28px;
   flex: 1;
   min-height: 120px;
-  background: #060608;
-  border-radius: 2px;
+  background: #1a1008;
+  border-radius: 14px;
   position: relative;
   overflow: hidden;
   display: flex;
@@ -365,18 +365,27 @@
 /* ── Bar fill (the actual meter) ─────────────────────────────────── */
 .ccm-bar-fill {
   width: 100%;
-  border-radius: 1px;
+  border-radius: 0 0 13px 13px;
   min-height: 0;
   will-change: height;
-  /* Subtle inner gradient for depth */
-  background-image: linear-gradient(
-    90deg,
-    rgba(0, 0, 0, 0.2) 0%,
-    transparent 40%,
-    transparent 60%,
-    rgba(0, 0, 0, 0.15) 100%
-  );
-  background-blend-mode: overlay;
+  position: relative;
+  background-image: none !important;
+  background-color: color-mix(in srgb, var(--group-fill, #ff6a00) 35%, #0a0a0e) !important;
+  box-shadow: none !important;
+}
+
+/* Bright rounded indicator dot at the top of the fill */
+.ccm-bar-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--group-fill, #ff6a00);
+  box-shadow: 0 0 8px var(--group-glow, rgba(255, 106, 0, 0.4));
 }
 
 .ccm-bar--flash {
@@ -597,6 +606,7 @@
   min-height: 0;
   height: 14px;
   max-width: none;
+  border-radius: 7px;
   flex-direction: row;
   justify-content: flex-start;
 }
@@ -606,6 +616,17 @@
   height: 100% !important;
   width: var(--bar-pct, 0%);
   min-width: 0;
+  border-radius: 0 0 0 7px !important;
+}
+
+/* Dot on right side in horizontal mode */
+.ccm--horizontal .ccm-bar-fill::after {
+  top: 50%;
+  left: auto;
+  right: 0;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 10px;
 }
 
 /* Value readout — rightmost */
