@@ -36,7 +36,7 @@ const CC_TO_SLOT = {
 const MAX_PARTICLES = 400;
 const MAX_EMBERS = 150;
 const MAX_RINGS = 24;
-const STAR_COUNT = 200;
+const STAR_COUNT = 300;
 const NEBULA_COUNT = 5;
 const SMOOTH_ALPHA = 0.10;
 
@@ -55,8 +55,17 @@ let lastTime = 0;
 
 // Comet position (smoothed center)
 let cometX = 0, cometY = 0;
-let targetX = 0, targetY = 0;
+let targetY = 0;
 let cometAngle = 0; // direction of travel
+let lastMidiNote = 60; // persist last pitch — doesn't reset on note-off
+let smoothedMidiNote = 60; // heavily smoothed version for visual position
+let cometInitialized = false;
+
+// Background hue (driven by reverb)
+let bgHue = 220; // default deep blue space
+let bgHueTarget = 220;
+let bgSat = 8;
+let bgSatTarget = 8;
 
 // CC state (normalized 0-1)
 const ccRaw = new Float64Array(SLOT_COUNT);
@@ -93,10 +102,9 @@ const nebulae = [];
 
 // Trail history (smoothed comet positions for the tail)
 const trail = []; // { x, y, rms, drive }
-const TRAIL_LEN = 180;
+const TRAIL_LEN = 600;
 
-// Reverb haze trailing position
-let hazeX = 0, hazeY = 0;
+// (reverb haze is now full-screen, no trailing position needed)
 
 // Pre-rendered textures
 let glowTexture128 = null;
@@ -269,10 +277,14 @@ function onMidiMessage({ data, msgType, channel }) {
     return;
   }
 
-  // Explosion on note-on from non-Take-5 instruments
-  // Take 5 typically on channel 1 (0-indexed); other instruments trigger explosions
-  if (msgType === 'noteon' && data[2] > 0 && channel !== 0) {
-    spawnExplosion();
+  if (msgType === 'noteon' && data[2] > 0) {
+    // Track pitch from note-on — persists (doesn't reset on note-off)
+    lastMidiNote = data[1];
+
+    // Explosion on note-on from non-Take-5 instruments (Take 5 = channel 1)
+    if (channel !== 1) {
+      spawnExplosion();
+    }
   }
 }
 
@@ -283,90 +295,119 @@ function smoothCC() {
 }
 
 /* ── Color blending ──────────────────────────────────────────────── */
+// Effect LEVELS (mix amounts) drive the comet's color.
+// Additional params (rate, time, feedback, freq, decay) drive visual components only.
 
 function blendEffectColors() {
+  // Each effect's level/mix controls how much its color contributes.
+  // The default warm-white is always present and fades out as effects come in.
+  const BASE_H = 30, BASE_S = 20, BASE_L = 82; // warm white baseline
+
   const entries = [
-    { h: 28,  s: 95, l: 55, w: ccSmoothed[SLOT_DRIVE] },
-    { h: 235, s: 65, l: 58, w: ccSmoothed[SLOT_CHORUS_MIX] },
-    { h: 275, s: 70, l: 50, w: ccSmoothed[SLOT_REVERB_MIX] },
-    { h: 185, s: 90, l: 55, w: ccSmoothed[SLOT_RING_MIX] },
+    { h: 28,  s: 95, l: 55, w: ccSmoothed[SLOT_DRIVE_LEVEL] },    // orange (level CC)
+    { h: 210, s: 80, l: 60, w: ccSmoothed[SLOT_CHORUS_MIX] },    // blue
+    { h: 140, s: 70, l: 55, w: ccSmoothed[SLOT_DELAY_MIX] },     // green
+    { h: 185, s: 90, l: 55, w: ccSmoothed[SLOT_RING_MIX] },      // cyan
   ];
+  // Note: reverb does NOT color the comet — it colors the BACKGROUND/space
 
-  let totalW = 0, hX = 0, hY = 0, sSum = 0, lSum = 0;
+  // Always include the baseline with a fixed weight.
+  // As effects increase, they gradually overpower the baseline.
+  const baseWeight = 0.6;
+  let totalW = baseWeight;
+  let hX = Math.cos(BASE_H * Math.PI / 180) * baseWeight;
+  let hY = Math.sin(BASE_H * Math.PI / 180) * baseWeight;
+  let sSum = BASE_S * baseWeight;
+  let lSum = BASE_L * baseWeight;
+
   for (const e of entries) {
-    if (e.w < 0.01) continue;
-    totalW += e.w;
-    hX += Math.cos(e.h * Math.PI / 180) * e.w;
-    hY += Math.sin(e.h * Math.PI / 180) * e.w;
-    sSum += e.s * e.w;
-    lSum += e.l * e.w;
-  }
-
-  if (totalW < 0.01) {
-    blendedColor = { h: 30, s: 60, l: 70 };
-    return;
+    if (e.w < 0.005) continue;
+    // Scale effect weight so it gradually blends (not binary)
+    const w = e.w * e.w * 2; // quadratic curve — gentle start, stronger at high values
+    totalW += w;
+    hX += Math.cos(e.h * Math.PI / 180) * w;
+    hY += Math.sin(e.h * Math.PI / 180) * w;
+    sSum += e.s * w;
+    lSum += e.l * w;
   }
 
   let h = ((Math.atan2(hY, hX) * 180 / Math.PI) + 360) % 360;
   const s = sSum / totalW;
   const l = lSum / totalW;
+  // EQ shifts color temperature
   const tempShift = (ccSmoothed[SLOT_EQ_HIGH] - ccSmoothed[SLOT_EQ_LOW]) * 30;
   h = (h + tempShift + 360) % 360;
   blendedColor = { h, s, l };
+
+  // Reverb drives the background hue — more reverb = deeper purple space,
+  // decay extends how saturated/vivid the space becomes
+  const reverbMix = ccSmoothed[SLOT_REVERB_MIX];
+  const reverbDecay = ccSmoothed[SLOT_REVERB_DECAY];
+  if (reverbMix > 0.02) {
+    bgHueTarget = 220 + reverbMix * 60; // shift from blue toward purple (280)
+    bgSatTarget = 8 + reverbMix * 55 + reverbDecay * 25; // much more vivid space
+  } else {
+    bgHueTarget = 220;
+    bgSatTarget = 8;
+  }
+  bgHue += (bgHueTarget - bgHue) * 0.03;
+  bgSat += (bgSatTarget - bgSat) * 0.03;
 }
 
 /* ── Comet position logic ────────────────────────────────────────── */
 
 function updateCometPosition(W, H) {
-  const pitchHistory = getPitchHistory();
   const rmsHistory = getRmsHistory();
+  const rms = rmsHistory && rmsHistory.length > 0 ? rmsHistory[rmsHistory.length - 1] : 0;
 
-  // Find current pitch
-  let headNote = null;
+  // Also check audio pitch detection as fallback (in case MIDI note-on
+  // isn't reaching us, e.g. if Take 5 sends on a different bus path)
+  const pitchHistory = getPitchHistory();
   if (pitchHistory) {
     for (let i = pitchHistory.length - 1; i >= 0; i--) {
-      if (pitchHistory[i]) { headNote = pitchHistory[i].midiNote; break; }
+      if (pitchHistory[i]) {
+        lastMidiNote = pitchHistory[i].midiNote;
+        break;
+      }
     }
   }
 
-  // Comet lives center-right, appearing to travel rightward through space
-  const anchorX = W * 0.55;
-  const anchorY = H * 0.5;
+  // Heavy smoothing on pitch — captures general direction, not every wiggle.
+  // This is a two-stage smooth: first smooth the MIDI note itself (very slow),
+  // then smooth the comet Y position (moderate).
+  smoothedMidiNote += (lastMidiNote - smoothedMidiNote) * 0.025; // very slow pitch tracking
 
-  if (headNote !== null) {
-    // Gentle pitch response: ±10% of height, heavily smoothed
-    const normalizedPitch = ((headNote - 60) / 30); // wider range = less sensitive
-    targetY = anchorY - normalizedPitch * H * 0.10;
-    // Subtle horizontal breathing
-    const rms = rmsHistory && rmsHistory.length > 0 ? rmsHistory[rmsHistory.length - 1] : 0;
-    targetX = anchorX + Math.sin(time * 0.25) * W * 0.02 + rms * W * 0.01;
-  } else {
-    // Idle: very gentle float
-    targetX = anchorX + Math.sin(time * 0.18) * W * 0.015;
-    targetY = anchorY + Math.cos(time * 0.12) * H * 0.015;
+  // Fixed horizontal position — comet stays center, space moves around it
+  const anchorX = W * 0.5;
+
+  // Pitch maps to Y: low notes = bottom, high notes = top
+  // Range: MIDI 36 (C2) to 84 (C6) mapped to 85% → 15% of canvas height
+  const pitchNorm = Math.max(0, Math.min(1, (smoothedMidiNote - 36) / (84 - 36)));
+  targetY = H * (0.85 - pitchNorm * 0.70);
+
+  // Initialize comet to target on first frame (no slow drift from 0,0)
+  if (!cometInitialized) {
+    cometX = anchorX;
+    smoothedMidiNote = lastMidiNote;
+    cometY = targetY;
+    cometInitialized = true;
   }
 
-  // Very smooth follow — less jittery
-  const prevX = cometX, prevY = cometY;
-  cometX += (targetX - cometX) * 0.03;
-  cometY += (targetY - cometY) * 0.03;
+  // Smooth follow — moderate speed for silky movement
+  cometX = anchorX; // locked horizontally
+  const prevY = cometY;
+  cometY += (targetY - cometY) * 0.08;
 
-  // Travel angle: strongly biased toward rightward (0 radians) to feel like
-  // the comet is flying through space horizontally
-  const dx = cometX - prevX;
+  // Travel angle: nearly horizontal, slight vertical pitch from Y movement
   const dy = cometY - prevY;
-  const rawAngle = (Math.abs(dx) > 0.001 || Math.abs(dy) > 0.001)
-    ? Math.atan2(dy, dx) : cometAngle;
-  // Blend toward 0 (rightward) — 70% horizontal bias
-  const biasedAngle = rawAngle * 0.3; // pull toward 0
-  let diff = biasedAngle - cometAngle;
-  while (diff > Math.PI) diff -= TAU;
-  while (diff < -Math.PI) diff += TAU;
-  cometAngle += diff * 0.05;
+  const pitchAngle = Math.atan2(dy, 12); // large denominator keeps it nearly horizontal
+  cometAngle += (pitchAngle - cometAngle) * 0.06;
 
-  // Record trail
-  const rms = rmsHistory && rmsHistory.length > 0 ? rmsHistory[rmsHistory.length - 1] : 0;
-  trail.push({ x: cometX, y: cometY, rms, drive: ccSmoothed[SLOT_DRIVE] });
+  // Record trail — trail positions are in "world space" that scrolls leftward,
+  // so the tail naturally extends behind the comet even though it's screen-fixed.
+  // worldX advances constantly to simulate rightward flight.
+  const worldX = time * 180; // virtual horizontal position (pixels/sec of travel)
+  trail.push({ wx: worldX, y: cometY, rms, drive: ccSmoothed[SLOT_DRIVE] });
   if (trail.length > TRAIL_LEN) trail.shift();
 }
 
@@ -394,16 +435,20 @@ function emitEmber(x, y, vx, vy) {
 }
 
 function updateParticles() {
+  // Particles drift leftward to simulate the comet flying rightward through space
+  const worldDrift = -2.0; // px/frame leftward drift
   for (let i = 0; i < MAX_PARTICLES; i++) {
     if (pLife[i] <= 0) continue;
-    pX[i] += pVX[i]; pY[i] += pVY[i];
+    pX[i] += pVX[i] + worldDrift;
+    pY[i] += pVY[i];
     pVX[i] *= 0.975; pVY[i] *= 0.975;
     pLife[i] -= 0.012;
     if (pLife[i] < 0) pLife[i] = 0;
   }
   for (let i = 0; i < MAX_EMBERS; i++) {
     if (eLife[i] <= 0) continue;
-    eX[i] += eVX[i]; eY[i] += eVY[i];
+    eX[i] += eVX[i] + worldDrift;
+    eY[i] += eVY[i];
     eVX[i] *= 0.96; eVY[i] *= 0.96;
     eLife[i] -= 0.025;
     if (eLife[i] < 0) eLife[i] = 0;
@@ -460,8 +505,9 @@ function draw(W, H, dt) {
   const { h, s, l } = blendedColor;
   const drive = ccSmoothed[SLOT_DRIVE];
 
-  // 1. Deep space background
-  ctx.fillStyle = '#020208';
+  // 1. Deep space background — hue shifts with reverb
+  const bgL = 2 + bgSat * 0.08; // brighter when reverb adds saturation
+  ctx.fillStyle = `hsl(${bgHue}, ${bgSat}%, ${bgL}%)`;
   ctx.fillRect(0, 0, W, H);
 
   // 2. Nebula clouds (very subtle colored fog)
@@ -488,8 +534,11 @@ function draw(W, H, dt) {
   // 8.5 Explosions (non-Take-5 note triggers)
   drawExplosions(W, H);
 
-  // 9. Ring mod ripples
-  if (ringPool.length > 0) drawRingRipples();
+  // 9. Ring mod — chaotic visuals
+  if (ccSmoothed[SLOT_RING_MIX] > 0.01 || ringPool.length > 0) drawRingRipples();
+
+  // 9.5 EQ spectral bands
+  drawEQ(W, H, rms);
 
   // 10. Comet head (the star)
   drawCometHead(W, H, rms);
@@ -503,12 +552,18 @@ function draw(W, H, dt) {
 /* ── Nebulae ─────────────────────────────────────────────────────── */
 
 function drawNebulae(W, H) {
+  const reverbMix = ccSmoothed[SLOT_REVERB_MIX];
+  // Reverb brightens nebulae — makes the space feel more alive
+  const reverbBoost = 1 + reverbMix * 3;
+  const nebulaeDrift = time * 0.02; // drift with star field
+
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
   for (const n of nebulae) {
-    const nx = n.x * W;
+    // Drift leftward like stars
+    const driftX = ((n.x - nebulaeDrift * (0.3 + n.rx * 0.001)) % 1 + 1) % 1;
+    const nx = driftX * W;
     const ny = n.y * H;
-    // Breathing animation
     const breathe = 1 + Math.sin(time * 0.15 + n.rotation) * 0.1;
     const rx = n.rx * breathe;
     const ry = n.ry * breathe;
@@ -518,9 +573,10 @@ function drawNebulae(W, H) {
     ctx.rotate(n.rotation + time * 0.005);
     ctx.scale(1, ry / rx);
 
+    const alpha = n.alpha * reverbBoost;
     const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
-    g.addColorStop(0, `hsla(${n.hue}, 50%, 40%, ${n.alpha * 1.5})`);
-    g.addColorStop(0.4, `hsla(${n.hue}, 40%, 30%, ${n.alpha})`);
+    g.addColorStop(0, `hsla(${n.hue}, 50%, 40%, ${alpha * 1.5})`);
+    g.addColorStop(0.4, `hsla(${n.hue}, 40%, 30%, ${alpha})`);
     g.addColorStop(1, `hsla(${n.hue}, 30%, 20%, 0)`);
     ctx.fillStyle = g;
     ctx.fillRect(-rx, -rx, rx * 2, rx * 2);
@@ -534,7 +590,7 @@ function drawNebulae(W, H) {
 
 function drawStars(W, H) {
   // Stars drift slowly leftward to create the feeling of traveling through space
-  const drift = time * 0.015; // fast horizontal travel
+  const drift = time * 0.06; // blazing through space
   for (const s of stars) {
     const twinkle = 0.2 + 0.8 * (0.5 + 0.5 * Math.sin(time * s.speed + s.phase));
     const alpha = twinkle * 0.5;
@@ -559,37 +615,53 @@ function drawStars(W, H) {
   }
 }
 
-/* ── Reverb haze ─────────────────────────────────────────────────── */
+/* ── Reverb space atmosphere ──────────────────────────────────────── */
+// Reverb = the space you're in. It paints the entire background atmosphere,
+// not just a haze near the comet. Mix = intensity, Decay = how expansive.
 
 function drawReverbHaze(W, H) {
   const mix = ccSmoothed[SLOT_REVERB_MIX];
   const decay = ccSmoothed[SLOT_REVERB_DECAY];
-
-  hazeX += (cometX - hazeX) * 0.015;
-  hazeY += (cometY - hazeY) * 0.015;
-
-  const radius = 80 + decay * 180;
-  const alpha = mix * 0.12;
+  const alpha = mix * 0.25; // strong — reverb should be unmistakable
 
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
 
-  // Primary haze
-  const g1 = ctx.createRadialGradient(hazeX, hazeY, 0, hazeX, hazeY, radius);
-  g1.addColorStop(0, `hsla(275, 70%, 45%, ${alpha})`);
-  g1.addColorStop(0.3, `hsla(280, 55%, 35%, ${alpha * 0.6})`);
-  g1.addColorStop(0.7, `hsla(285, 40%, 25%, ${alpha * 0.15})`);
-  g1.addColorStop(1, 'hsla(290, 30%, 15%, 0)');
-  ctx.fillStyle = g1;
-  ctx.fillRect(hazeX - radius, hazeY - radius, radius * 2, radius * 2);
+  // Full-screen atmospheric wash — like being inside a reverberant space
+  const edgeGrad = ctx.createRadialGradient(W/2, H/2, Math.min(W, H) * 0.05, W/2, H/2, Math.max(W, H) * 0.9);
+  edgeGrad.addColorStop(0, `hsla(${bgHue + 40}, ${40 + decay * 40}%, 30%, ${alpha * 0.4})`);
+  edgeGrad.addColorStop(0.4, `hsla(${bgHue + 50}, ${35 + decay * 35}%, 25%, ${alpha * 0.7})`);
+  edgeGrad.addColorStop(0.8, `hsla(${bgHue + 60}, ${30 + decay * 30}%, 18%, ${alpha * 0.9})`);
+  edgeGrad.addColorStop(1, `hsla(${bgHue + 60}, ${25 + decay * 25}%, 12%, ${alpha})`);
+  ctx.fillStyle = edgeGrad;
+  ctx.fillRect(0, 0, W, H);
 
-  // Wide ambient
-  const r2 = radius * 2.2;
-  const g2 = ctx.createRadialGradient(hazeX, hazeY, 0, hazeX, hazeY, r2);
-  g2.addColorStop(0, `hsla(265, 40%, 35%, ${alpha * 0.25})`);
-  g2.addColorStop(1, 'hsla(270, 30%, 20%, 0)');
-  ctx.fillStyle = g2;
-  ctx.fillRect(hazeX - r2, hazeY - r2, r2 * 2, r2 * 2);
+  // Corner fog — decay makes the space feel more enclosed/expansive
+  const fogR = Math.max(W, H) * (0.4 + decay * 0.6);
+  const corners = [[0, 0], [W, 0], [0, H], [W, H]];
+  for (const [cx, cy] of corners) {
+    const fg = ctx.createRadialGradient(cx, cy, 0, cx, cy, fogR);
+    fg.addColorStop(0, `hsla(${bgHue + 55}, ${45 + decay * 35}%, 35%, ${alpha * 0.7})`);
+    fg.addColorStop(0.4, `hsla(${bgHue + 50}, ${35 + decay * 25}%, 25%, ${alpha * 0.3})`);
+    fg.addColorStop(0.8, `hsla(${bgHue + 45}, ${25 + decay * 20}%, 18%, ${alpha * 0.08})`);
+    fg.addColorStop(1, 'hsla(270, 20%, 10%, 0)');
+    ctx.fillStyle = fg;
+    ctx.fillRect(cx - fogR, cy - fogR, fogR * 2, fogR * 2);
+  }
+
+  // Top/bottom edge glow for immersion
+  const edgeAlpha = alpha * 0.5;
+  const topGrad = ctx.createLinearGradient(0, 0, 0, H * 0.3);
+  topGrad.addColorStop(0, `hsla(${bgHue + 50}, ${40 + decay * 30}%, 25%, ${edgeAlpha})`);
+  topGrad.addColorStop(1, 'hsla(270, 20%, 10%, 0)');
+  ctx.fillStyle = topGrad;
+  ctx.fillRect(0, 0, W, H * 0.3);
+
+  const botGrad = ctx.createLinearGradient(0, H * 0.7, 0, H);
+  botGrad.addColorStop(0, 'hsla(270, 20%, 10%, 0)');
+  botGrad.addColorStop(1, `hsla(${bgHue + 50}, ${40 + decay * 30}%, 25%, ${edgeAlpha})`);
+  ctx.fillStyle = botGrad;
+  ctx.fillRect(0, H * 0.7, W, H * 0.3);
 
   ctx.restore();
 }
@@ -601,85 +673,43 @@ function drawDelayGhosts(W, H, rms) {
   const delayTime = ccSmoothed[SLOT_DELAY_TIME];
   const feedback = ccSmoothed[SLOT_DELAY_FB];
 
+  // Feedback controls how many echoes (1-8), time controls spacing
   const ghostCount = Math.floor(feedback * 7) + 1;
-  // Larger spacing range for more visible separation
-  const spacing = Math.max(8, Math.floor(delayTime * 80));
+  const spacing = Math.max(15, Math.floor(delayTime * 250));
   const len = trail.length;
 
-  // Distinct green color for delay ghosts (Simple Delay = green #30d158)
-  const ghostHue = 140;
-  const ghostSat = 70;
-
+  // Draw furthest ghosts first (back to front)
   for (let g = ghostCount; g >= 1; g--) {
     const idx = len - 1 - (g * spacing);
     if (idx < 0) continue;
     const t = trail[idx];
     if (!t) continue;
 
-    // Much stronger alpha — delay should be unmistakable
-    const falloff = 1 - (g - 1) / ghostCount;
+    const gx = trailScreenX(t);
+    const gy = t.y;
+    if (gx < -600 || gx > W + 600) continue;
+
+    // Each successive ghost is fainter (exponential feedback decay)
+    const falloff = Math.pow(feedback, g - 1);
     const alpha = mix * falloff * 0.85;
     if (alpha <= 0.01) continue;
 
-    // Ghost size scales down with each repeat
-    const ghostScale = 0.7 + falloff * 0.3;
-    const ghostCoreR = (16 + rms * 20) * ghostScale;
+    // Scale: first ghost is 90% of main comet, diminishing with feedback
+    const ghostScale = 0.7 + falloff * 0.25;
 
-    // === Wide green glow ===
-    ctx.save();
-    ctx.globalCompositeOperation = 'screen';
-
-    const outerR = ghostCoreR * 6;
-    const g1 = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, outerR);
-    g1.addColorStop(0, `hsla(${ghostHue}, ${ghostSat}%, 60%, ${alpha * 0.25})`);
-    g1.addColorStop(0.3, `hsla(${ghostHue}, ${ghostSat - 10}%, 45%, ${alpha * 0.1})`);
-    g1.addColorStop(1, `hsla(${ghostHue}, ${ghostSat - 20}%, 30%, 0)`);
-    ctx.fillStyle = g1;
-    ctx.fillRect(t.x - outerR, t.y - outerR, outerR * 2, outerR * 2);
-
-    // === Bright ghost core ===
-    const gc = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, ghostCoreR);
-    gc.addColorStop(0, `hsla(${ghostHue - 10}, ${ghostSat + 10}%, 85%, ${alpha * 0.9})`);
-    gc.addColorStop(0.3, `hsla(${ghostHue}, ${ghostSat}%, 65%, ${alpha * 0.5})`);
-    gc.addColorStop(0.7, `hsla(${ghostHue + 10}, ${ghostSat - 10}%, 50%, ${alpha * 0.15})`);
-    gc.addColorStop(1, `hsla(${ghostHue}, ${ghostSat}%, 40%, 0)`);
-    ctx.fillStyle = gc;
-    ctx.beginPath();
-    ctx.arc(t.x, t.y, ghostCoreR, 0, TAU);
-    ctx.fill();
-
-    // === White-hot center dot ===
-    const dotR = ghostCoreR * 0.25;
-    const dot = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, dotR);
-    dot.addColorStop(0, `rgba(255, 255, 255, ${alpha * 0.8})`);
-    dot.addColorStop(1, 'rgba(255, 255, 255, 0)');
-    ctx.fillStyle = dot;
-    ctx.beginPath();
-    ctx.arc(t.x, t.y, dotR, 0, TAU);
-    ctx.fill();
-
-    ctx.restore();
-
-    // === Ghost trail (green stroke) ===
-    ctx.beginPath();
-    const tailSamples = Math.min(25, idx);
-    let started = false;
-    for (let ti = idx - tailSamples; ti <= idx; ti++) {
-      if (ti < 0) continue;
-      const tp = trail[ti];
-      if (!started) { ctx.moveTo(tp.x, tp.y); started = true; }
-      else ctx.lineTo(tp.x, tp.y);
-    }
-    ctx.strokeStyle = `hsla(${ghostHue}, ${ghostSat}%, 60%, ${alpha * 0.35})`;
-    ctx.lineWidth = 2 * ghostScale;
-    ctx.shadowColor = `hsla(${ghostHue}, ${ghostSat}%, 50%, ${alpha * 0.2})`;
-    ctx.shadowBlur = 6;
-    ctx.stroke();
-    ctx.shadowBlur = 0;
+    // Draw the FULL comet head with all effects (drive, chorus, plasma, etc.)
+    // using the shared drawCometHeadAt function — true delayed copies
+    drawCometHeadAt(W, H, rms, gx, gy, ghostScale, alpha);
   }
 }
 
 /* ── Comet tail ──────────────────────────────────────────────────── */
+
+// Convert trail world-X to screen-X relative to the comet head
+function trailScreenX(trailEntry) {
+  const headWx = trail.length > 0 ? trail[trail.length - 1].wx : 0;
+  return cometX - (headWx - trailEntry.wx); // older entries are further left
+}
 
 function drawCometTail(W, H, rms) {
   const { h, s, l } = blendedColor;
@@ -689,26 +719,25 @@ function drawCometTail(W, H, rms) {
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
 
-  // Wide luminous trail (soft glow)
   for (let i = 1; i < len; i++) {
     const t = trail[i];
-    const progress = i / len; // 0=old, 1=new
+    const tx = trailScreenX(t);
+    if (tx < -100 || tx > W + 100) continue;
+    const progress = i / len;
     const alpha = progress * progress * 0.08 * (1 + rms * 2);
     const glowR = 25 + progress * 50 + rms * 35;
-
     if (alpha < 0.003) continue;
 
-    const g = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, glowR);
+    const g = ctx.createRadialGradient(tx, t.y, 0, tx, t.y, glowR);
     g.addColorStop(0, `hsla(${h}, ${s}%, ${l + 10}%, ${alpha})`);
     g.addColorStop(1, `hsla(${h}, ${s}%, ${l}%, 0)`);
     ctx.fillStyle = g;
-    ctx.fillRect(t.x - glowR, t.y - glowR, glowR * 2, glowR * 2);
+    ctx.fillRect(tx - glowR, t.y - glowR, glowR * 2, glowR * 2);
   }
 
   ctx.restore();
 
   // === Core line pass ===
-  // Smooth curve through trail points using quadratic bezier
   const segSize = 6;
   for (let seg = 0; seg < Math.ceil(len / segSize); seg++) {
     const start = seg * segSize;
@@ -719,7 +748,6 @@ function drawCometTail(W, H, rms) {
 
     const alpha = progress * progress * 0.7 * (0.4 + rms * 0.6);
     const width = 1 + progress * progress * 7;
-
     if (alpha < 0.01) continue;
 
     ctx.beginPath();
@@ -727,15 +755,11 @@ function drawCometTail(W, H, rms) {
 
     for (let i = start; i < end; i++) {
       const t = trail[i];
-      let x = t.x, y = t.y;
+      let x = trailScreenX(t), y = t.y;
 
-      // Drive roughness
       if (drive > 0.05) {
         const noise = Math.sin(i * 17.3 + time * 4.1) * Math.cos(i * 11.7 + time * 3.3);
-        const perpX = -Math.sin(cometAngle);
-        const perpY = Math.cos(cometAngle);
-        x += perpX * noise * drive * 8;
-        y += perpY * noise * drive * 8;
+        y += noise * drive * 10;
       }
 
       if (!started) { ctx.moveTo(x, y); started = true; }
@@ -800,18 +824,122 @@ function drawParticles(W, H) {
   }
 }
 
-/* ── Ring mod ripples ────────────────────────────────────────────── */
+/* ── Ring mod — chaotic, glitchy, metallic visuals ────────────────── */
+// Ring mod creates harsh inharmonic tones. The visual should feel unstable,
+// electric, fractured — like reality is glitching around the comet.
 
 function drawRingRipples() {
+  const ringMix = ccSmoothed[SLOT_RING_MIX];
+  const ringFreq = ccSmoothed[SLOT_RING_FREQ];
+  if (ringMix < 0.02) return;
+
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
+
+  const cx = cometX, cy = cometY;
+  const intensity = ringMix;
+  const freq = ringFreq;
+  const speed = 4 + freq * 20; // frequency drives visual speed
+
+  // === 1. Expanding interference rings (fast, many) ===
   for (const r of ringPool) {
-    ctx.strokeStyle = `rgba(0, 240, 255, ${r.alpha})`;
-    ctx.lineWidth = 1.5 * r.alpha + 0.5;
+    // Distorted ring — not a perfect circle, warped by freq
     ctx.beginPath();
-    ctx.arc(r.x, r.y, r.radius, 0, TAU);
+    const steps = 60;
+    for (let i = 0; i <= steps; i++) {
+      const a = (i / steps) * TAU;
+      const warp = Math.sin(a * (3 + Math.floor(freq * 8)) + time * speed) * r.radius * 0.15 * intensity;
+      const px = r.x + Math.cos(a) * (r.radius + warp);
+      const py = r.y + Math.sin(a) * (r.radius + warp);
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = `rgba(0, 240, 255, ${r.alpha})`;
+    ctx.lineWidth = 1.5 + intensity * 3;
     ctx.stroke();
   }
+
+  // === 2. Electric arcs — jagged lightning bolts radiating outward ===
+  const arcCount = 3 + Math.floor(intensity * 8);
+  for (let i = 0; i < arcCount; i++) {
+    const angle = (i / arcCount) * TAU + time * speed * 0.3 + Math.sin(time * 3.7 + i) * 0.5;
+    const len = 40 + intensity * 120 + Math.sin(time * speed + i * 2.3) * 30;
+    const segments = 6 + Math.floor(intensity * 6);
+    const arcAlpha = intensity * (0.3 + Math.random() * 0.4);
+
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    let px = cx, py = cy;
+    for (let s = 1; s <= segments; s++) {
+      const t2 = s / segments;
+      const baseX = cx + Math.cos(angle) * len * t2;
+      const baseY = cy + Math.sin(angle) * len * t2;
+      // Jagged perpendicular displacement
+      const jitter = (Math.random() - 0.5) * 25 * intensity;
+      const perpX = -Math.sin(angle);
+      const perpY = Math.cos(angle);
+      px = baseX + perpX * jitter;
+      py = baseY + perpY * jitter;
+      ctx.lineTo(px, py);
+    }
+    ctx.strokeStyle = `hsla(185, 95%, ${70 + Math.random() * 25}%, ${arcAlpha})`;
+    ctx.lineWidth = 0.8 + intensity * 2;
+    ctx.shadowColor = `hsla(185, 90%, 60%, ${arcAlpha * 0.5})`;
+    ctx.shadowBlur = 6 + intensity * 8;
+    ctx.stroke();
+  }
+  ctx.shadowBlur = 0;
+
+  // === 3. Glitch rectangles — screen-tear artifacts ===
+  if (intensity > 0.3) {
+    const glitchCount = Math.floor((intensity - 0.3) * 15);
+    for (let i = 0; i < glitchCount; i++) {
+      const gw = 20 + Math.random() * 80 * intensity;
+      const gh = 1 + Math.random() * 4;
+      const gx = cx - 60 + Math.sin(time * speed * 2 + i * 5.7) * 100 * intensity;
+      const gy = cy - 80 + Math.random() * 160;
+      const glitchAlpha = (intensity - 0.3) * (0.2 + Math.random() * 0.3);
+      ctx.fillStyle = `hsla(${180 + Math.random() * 30}, 90%, ${60 + Math.random() * 30}%, ${glitchAlpha})`;
+      ctx.fillRect(gx, gy, gw, gh);
+    }
+  }
+
+  // === 4. Frequency-modulated halo — pulsing at ring mod rate ===
+  const haloR = 50 + intensity * 80;
+  const haloPulse = Math.sin(time * speed) * 0.5 + 0.5;
+  const haloAlpha = intensity * 0.2 * haloPulse;
+  const hg = ctx.createRadialGradient(cx, cy, haloR * 0.3, cx, cy, haloR);
+  hg.addColorStop(0, `hsla(185, 90%, 60%, ${haloAlpha})`);
+  hg.addColorStop(0.5, `hsla(195, 80%, 50%, ${haloAlpha * 0.4})`);
+  hg.addColorStop(1, 'hsla(200, 70%, 40%, 0)');
+  ctx.fillStyle = hg;
+  ctx.beginPath();
+  ctx.arc(cx, cy, haloR, 0, TAU);
+  ctx.fill();
+
+  // === 5. Fracture lines — cracks in space radiating from comet ===
+  if (intensity > 0.5) {
+    const crackCount = Math.floor((intensity - 0.5) * 12);
+    for (let i = 0; i < crackCount; i++) {
+      const angle = (i / crackCount) * TAU + time * 0.5;
+      const crackLen = 60 + intensity * 150;
+      const crackAlpha = (intensity - 0.5) * 0.5 * (0.5 + Math.sin(time * 12 + i * 3) * 0.5);
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      let cpx = cx, cpy = cy;
+      for (let s = 0; s < 5; s++) {
+        const t2 = (s + 1) / 5;
+        cpx = cx + Math.cos(angle) * crackLen * t2 + (Math.random() - 0.5) * 15;
+        cpy = cy + Math.sin(angle) * crackLen * t2 + (Math.random() - 0.5) * 15;
+        ctx.lineTo(cpx, cpy);
+      }
+      ctx.strokeStyle = `hsla(180, 100%, 90%, ${crackAlpha})`;
+      ctx.lineWidth = 0.5 + Math.random() * 1.5;
+      ctx.stroke();
+    }
+  }
+
   ctx.restore();
 }
 
@@ -819,24 +947,142 @@ function spawnRingRipple() {
   const ringMix = ccSmoothed[SLOT_RING_MIX];
   if (ringMix < 0.02) return;
   const ringFreq = ccSmoothed[SLOT_RING_FREQ];
-  const interval = Math.max(3, Math.floor(30 - ringFreq * 25));
+  const interval = Math.max(2, Math.floor(20 - ringFreq * 18));
   if (Math.floor(time * 60) % interval === 0 && ringPool.length < MAX_RINGS) {
-    ringPool.push({ x: cometX, y: cometY, radius: 8, alpha: ringMix * 0.4 });
+    ringPool.push({ x: cometX, y: cometY, radius: 8, alpha: ringMix * 0.5 });
   }
 }
 
-/* ── Comet head ──────────────────────────────────────────────────── */
+/* ── EQ spectral bands ───────────────────────────────────────────── */
+// Low = warm amber aurora below the comet
+// Mid = golden presence glow around the comet
+// High = cool blue-white sparkle/shimmer above the comet
 
-function drawCometHead(W, H, rms) {
+function drawEQ(W, H, rms) {
+  const eqLow = ccSmoothed[SLOT_EQ_LOW];
+  const eqMid = ccSmoothed[SLOT_EQ_MID];
+  const eqHigh = ccSmoothed[SLOT_EQ_HIGH];
+
+  if (eqLow < 0.02 && eqMid < 0.02 && eqHigh < 0.02) return;
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+
+  // === LOW — warm amber aurora sweeping below the comet ===
+  if (eqLow > 0.02) {
+    const lowAlpha = eqLow * 0.35;
+    const lowR = 60 + eqLow * 120;
+    // Wide band below the comet
+    const lowY = cometY + 30 + eqLow * 20;
+    const lg = ctx.createRadialGradient(cometX, lowY, 10, cometX, lowY, lowR);
+    lg.addColorStop(0, `hsla(25, 90%, 55%, ${lowAlpha})`);
+    lg.addColorStop(0.3, `hsla(18, 85%, 45%, ${lowAlpha * 0.5})`);
+    lg.addColorStop(0.7, `hsla(10, 75%, 35%, ${lowAlpha * 0.12})`);
+    lg.addColorStop(1, 'hsla(5, 70%, 25%, 0)');
+    ctx.fillStyle = lg;
+    ctx.fillRect(cometX - lowR, lowY - lowR, lowR * 2, lowR * 2);
+
+    // Pulsing low-frequency wave bands
+    for (let i = 0; i < 3; i++) {
+      const waveY = lowY + Math.sin(time * 1.5 + i * 1.2) * 15;
+      const waveR = lowR * (0.6 + i * 0.25);
+      const waveAlpha = lowAlpha * (0.3 - i * 0.08);
+      ctx.beginPath();
+      ctx.ellipse(cometX, waveY, waveR, waveR * 0.3, 0, 0, TAU);
+      ctx.strokeStyle = `hsla(20, 90%, 55%, ${waveAlpha})`;
+      ctx.lineWidth = 2 + eqLow * 3;
+      ctx.stroke();
+    }
+  }
+
+  // === MID — golden presence ring/aura around the comet ===
+  if (eqMid > 0.02) {
+    const midAlpha = eqMid * 0.3;
+    const midR = 40 + eqMid * 80;
+
+    // Warm golden ring
+    const mg = ctx.createRadialGradient(cometX, cometY, midR * 0.4, cometX, cometY, midR);
+    mg.addColorStop(0, `hsla(45, 85%, 60%, ${midAlpha * 0.5})`);
+    mg.addColorStop(0.5, `hsla(40, 80%, 50%, ${midAlpha * 0.3})`);
+    mg.addColorStop(1, 'hsla(35, 70%, 40%, 0)');
+    ctx.fillStyle = mg;
+    ctx.beginPath();
+    ctx.arc(cometX, cometY, midR, 0, TAU);
+    ctx.fill();
+
+    // Rotating mid presence arcs
+    const arcCount = 4 + Math.floor(eqMid * 4);
+    for (let i = 0; i < arcCount; i++) {
+      const angle = (i / arcCount) * TAU + time * 0.8;
+      const arcR = midR * (0.7 + Math.sin(time * 2.5 + i * 1.7) * 0.2);
+      const arcAlpha = midAlpha * 0.5 * (0.6 + Math.sin(time * 3 + i * 2.1) * 0.4);
+      ctx.beginPath();
+      ctx.arc(cometX, cometY, arcR, angle, angle + 0.5 + eqMid * 0.5);
+      ctx.strokeStyle = `hsla(42, 85%, 65%, ${arcAlpha})`;
+      ctx.lineWidth = 1.5 + eqMid * 3;
+      ctx.stroke();
+    }
+  }
+
+  // === HIGH — cool blue-white sparkle/shimmer above the comet ===
+  if (eqHigh > 0.02) {
+    const highAlpha = eqHigh * 0.4;
+    const highR = 50 + eqHigh * 100;
+    const highY = cometY - 25 - eqHigh * 15;
+
+    // Cool shimmer glow above
+    const hg = ctx.createRadialGradient(cometX, highY, 5, cometX, highY, highR);
+    hg.addColorStop(0, `hsla(210, 70%, 85%, ${highAlpha})`);
+    hg.addColorStop(0.3, `hsla(220, 60%, 75%, ${highAlpha * 0.4})`);
+    hg.addColorStop(0.7, `hsla(230, 50%, 60%, ${highAlpha * 0.08})`);
+    hg.addColorStop(1, 'hsla(240, 40%, 50%, 0)');
+    ctx.fillStyle = hg;
+    ctx.fillRect(cometX - highR, highY - highR, highR * 2, highR * 2);
+
+    // Sparkle particles — tiny bright dots that flicker
+    const sparkleCount = 6 + Math.floor(eqHigh * 12);
+    for (let i = 0; i < sparkleCount; i++) {
+      // Pseudo-random positions that shift over time
+      const seed = i * 7.31 + 3.17;
+      const sx = cometX + Math.sin(seed + time * 1.3) * highR * 0.8;
+      const sy = highY + Math.cos(seed * 1.7 + time * 1.1) * highR * 0.5;
+      const flicker = 0.3 + 0.7 * Math.pow(Math.sin(time * 8 + seed * 2.3) * 0.5 + 0.5, 2);
+      const sparkAlpha = highAlpha * flicker * 0.7;
+      const sparkSize = 1 + eqHigh * 2.5 * flicker;
+
+      // Bright dot
+      ctx.fillStyle = `hsla(210, 60%, 95%, ${sparkAlpha})`;
+      ctx.beginPath();
+      ctx.arc(sx, sy, sparkSize, 0, TAU);
+      ctx.fill();
+
+      // Tiny cross on brightest sparkles
+      if (flicker > 0.7) {
+        const crossLen = sparkSize * 3;
+        ctx.strokeStyle = `hsla(215, 50%, 90%, ${sparkAlpha * 0.4})`;
+        ctx.lineWidth = 0.5;
+        ctx.beginPath(); ctx.moveTo(sx - crossLen, sy); ctx.lineTo(sx + crossLen, sy); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(sx, sy - crossLen); ctx.lineTo(sx, sy + crossLen); ctx.stroke();
+      }
+    }
+  }
+
+  ctx.restore();
+}
+
+/* ── Comet head ──────────────────────────────────────────────────── */
+// Draws a full comet head at (hx, hy) with given scale and alpha.
+// scale=1, masterAlpha=1 for the main comet. Delay ghosts call with reduced values.
+
+function drawCometHeadAt(W, H, rms, hx, hy, scale, masterAlpha) {
   const drive = ccSmoothed[SLOT_DRIVE];
   const driveLevel = ccSmoothed[SLOT_DRIVE_LEVEL];
   const chorusMix = ccSmoothed[SLOT_CHORUS_MIX];
   const chorusRate = ccSmoothed[SLOT_CHORUS_RATE];
   const { h, s, l } = blendedColor;
-  const hx = cometX, hy = cometY;
 
-  const brightness = 0.7 + driveLevel * 0.25 + rms * 0.35;
-  const coreRadius = 20 + rms * 32;
+  const brightness = (0.7 + driveLevel * 0.25 + rms * 0.35) * masterAlpha;
+  const coreRadius = (20 + rms * 32) * scale;
 
   // === Outermost ambient glow (BIG, in-your-face) ===
   ctx.save();
@@ -919,36 +1165,66 @@ function drawCometHead(W, H, rms) {
     ctx.restore();
   }
 
-  // === Chorus shimmer rings ===
+  // === Chorus visual — swirling orbital aura ===
+  // Chorus = modulation/movement. Visual: orbiting light streaks + pulsing rings
   if (chorusMix > 0.02) {
-    const baseR = coreRadius * 2.5;
     ctx.save();
     ctx.globalCompositeOperation = 'screen';
+    const chorusSpeed = 3 + chorusRate * 12; // rate controls rotation speed
+
+    // Pulsing blue aura that breathes with the chorus rate
+    const pulseR = coreRadius * (2 + chorusMix * 2) + Math.sin(time * chorusSpeed) * chorusMix * 15;
+    const pulseAlpha = chorusMix * 0.2;
+    const pg = ctx.createRadialGradient(hx, hy, coreRadius * 0.8, hx, hy, pulseR);
+    pg.addColorStop(0, `hsla(210, 80%, 70%, ${pulseAlpha * 0.8})`);
+    pg.addColorStop(0.5, `hsla(220, 70%, 55%, ${pulseAlpha * 0.3})`);
+    pg.addColorStop(1, 'hsla(230, 60%, 40%, 0)');
+    ctx.fillStyle = pg;
+    ctx.beginPath();
+    ctx.arc(hx, hy, pulseR, 0, TAU);
+    ctx.fill();
+
+    // Orbiting light streaks (3 pairs, counter-rotating)
+    const orbitR = coreRadius * 2.5 + chorusMix * 20;
+    for (let i = 0; i < 6; i++) {
+      const dir = i < 3 ? 1 : -1;
+      const angle = dir * time * chorusSpeed * 0.4 + (i % 3) * TAU / 3;
+      const ox = hx + Math.cos(angle) * orbitR;
+      const oy = hy + Math.sin(angle) * orbitR * 0.6; // elliptical orbit
+      const streakLen = 12 + chorusMix * 20;
+      const sx = ox - Math.cos(angle) * streakLen;
+      const sy = oy - Math.sin(angle) * streakLen * 0.6;
+
+      const sg = ctx.createLinearGradient(sx, sy, ox, oy);
+      sg.addColorStop(0, 'hsla(210, 70%, 60%, 0)');
+      sg.addColorStop(0.5, `hsla(215, 80%, 70%, ${chorusMix * 0.4})`);
+      sg.addColorStop(1, `hsla(220, 90%, 85%, ${chorusMix * 0.6})`);
+      ctx.strokeStyle = sg;
+      ctx.lineWidth = 1.5 + chorusMix * 2;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(ox, oy);
+      ctx.stroke();
+
+      // Bright dot at streak tip
+      ctx.fillStyle = `hsla(210, 80%, 90%, ${chorusMix * 0.5})`;
+      ctx.beginPath();
+      ctx.arc(ox, oy, 2 + chorusMix * 2, 0, TAU);
+      ctx.fill();
+    }
+
+    // Shimmer rings (thicker, more visible)
     for (let ring = 0; ring < 3; ring++) {
       const phase = ring * TAU / 3;
-      const r = baseR + Math.sin(time * (5 + chorusRate * 10) + phase) * chorusMix * 12;
-      const alpha = chorusMix * 0.3 * (1 - ring * 0.15);
-
+      const r = orbitR + Math.sin(time * chorusSpeed + phase) * chorusMix * 15;
+      const alpha = chorusMix * 0.25 * (1 - ring * 0.2);
       ctx.beginPath();
-      if (drive > 0.1) {
-        const steps = 48;
-        for (let step = 0; step <= steps; step++) {
-          const a = (step / steps) * TAU;
-          const wobble = Math.sin(a * 4 + time * 6 + ring * 1.3) * drive * 4;
-          const px = hx + Math.cos(a) * (r + wobble);
-          const py = hy + Math.sin(a) * (r + wobble);
-          if (step === 0) ctx.moveTo(px, py);
-          else ctx.lineTo(px, py);
-        }
-        ctx.closePath();
-      } else {
-        ctx.arc(hx, hy, Math.max(1, r), 0, TAU);
-      }
-
-      ctx.strokeStyle = `hsla(235, 65%, 70%, ${alpha})`;
-      ctx.lineWidth = 0.8 + chorusMix * 2;
+      ctx.arc(hx, hy, Math.max(1, r), 0, TAU);
+      ctx.strokeStyle = `hsla(215, 70%, 75%, ${alpha})`;
+      ctx.lineWidth = 1 + chorusMix * 3;
       ctx.stroke();
     }
+
     ctx.restore();
   }
 
@@ -1051,6 +1327,11 @@ function drawCometHead(W, H, rms) {
   ctx.beginPath(); ctx.moveTo(hx + dfl, hy - dfl); ctx.lineTo(hx - dfl, hy + dfl); ctx.stroke();
 
   ctx.restore();
+}
+
+// Convenience wrapper for the main comet
+function drawCometHead(W, H, rms) {
+  drawCometHeadAt(W, H, rms, cometX, cometY, 1, 1);
 }
 
 /* ── Particle emission ───────────────────────────────────────────── */
