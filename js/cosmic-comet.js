@@ -147,16 +147,16 @@ function initTextures() {
     [0.4, 'rgba(255, 200, 150, 0.15)'],
     [1, 'rgba(255, 150, 80, 0)'],
   ]);
-  // Large pre-rendered comet core (drawn once, tinted per frame)
+  // Large pre-rendered core glow — warm solar amber
   cometCoreTexture = makeGlow(256, [
-    [0, 'rgba(255, 255, 255, 1.0)'],
-    [0.02, 'rgba(255, 255, 250, 0.95)'],
-    [0.06, 'rgba(255, 245, 230, 0.7)'],
-    [0.12, 'rgba(255, 220, 180, 0.4)'],
-    [0.25, 'rgba(255, 180, 120, 0.15)'],
-    [0.45, 'rgba(255, 130, 70, 0.05)'],
-    [0.7, 'rgba(200, 80, 40, 0.015)'],
-    [1, 'rgba(150, 50, 20, 0)'],
+    [0, 'rgba(255, 250, 230, 1.0)'],
+    [0.02, 'rgba(255, 240, 200, 0.9)'],
+    [0.06, 'rgba(255, 210, 140, 0.6)'],
+    [0.12, 'rgba(255, 170, 80, 0.3)'],
+    [0.25, 'rgba(230, 120, 40, 0.12)'],
+    [0.45, 'rgba(180, 70, 20, 0.04)'],
+    [0.7, 'rgba(120, 40, 10, 0.01)'],
+    [1, 'rgba(80, 20, 5, 0)'],
   ]);
 }
 
@@ -1082,250 +1082,216 @@ function drawCometHeadAt(W, H, rms, hx, hy, scale, masterAlpha) {
   const { h, s, l } = blendedColor;
 
   const brightness = (0.7 + driveLevel * 0.25 + rms * 0.35) * masterAlpha;
-  const coreRadius = (20 + rms * 32) * scale;
+  const R = (20 + rms * 32) * scale; // core radius
 
-  // === Outermost ambient glow (BIG, in-your-face) ===
+  // ── 1. OUTER CORONA GLOW — deep amber atmospheric haze ──
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
   if (cometCoreTexture) {
-    const ambientSize = coreRadius * 22;
-    ctx.globalAlpha = brightness * 0.5;
-    ctx.drawImage(cometCoreTexture, hx - ambientSize/2, hy - ambientSize/2, ambientSize, ambientSize);
+    const sz = R * 24;
+    ctx.globalAlpha = brightness * 0.45;
+    ctx.drawImage(cometCoreTexture, hx - sz/2, hy - sz/2, sz, sz);
   }
   ctx.restore();
 
-  // === Warm atmospheric haze (fireball heat distortion) ===
+  // Effect-colored aura (blended color from effect levels)
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
-  const hazeR = coreRadius * 4;
-  const hazeGrad = ctx.createRadialGradient(hx, hy, coreRadius * 0.5, hx, hy, hazeR);
-  hazeGrad.addColorStop(0, `hsla(35, 80%, 60%, ${brightness * 0.12})`);
-  hazeGrad.addColorStop(0.3, `hsla(25, 70%, 50%, ${brightness * 0.06})`);
-  hazeGrad.addColorStop(0.7, `hsla(15, 60%, 40%, ${brightness * 0.02})`);
-  hazeGrad.addColorStop(1, 'hsla(10, 50%, 30%, 0)');
-  ctx.fillStyle = hazeGrad;
-  ctx.fillRect(hx - hazeR, hy - hazeR, hazeR * 2, hazeR * 2);
+  const auraR = R * 6;
+  const ag = ctx.createRadialGradient(hx, hy, R * 0.5, hx, hy, auraR);
+  ag.addColorStop(0, `hsla(${h}, ${s}%, ${l + 10}%, ${brightness * 0.2})`);
+  ag.addColorStop(0.4, `hsla(${h}, ${s - 10}%, ${l}%, ${brightness * 0.06})`);
+  ag.addColorStop(1, `hsla(${h}, ${s}%, ${l - 10}%, 0)`);
+  ctx.fillStyle = ag;
+  ctx.beginPath(); ctx.arc(hx, hy, auraR, 0, TAU); ctx.fill();
   ctx.restore();
 
-  // === Secondary colored glow (larger) ===
+  // ── 2. SOLAR PROMINENCES — organic plasma tendrils ──
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
-  const colorGlowR = coreRadius * 8;
-  const cg = ctx.createRadialGradient(hx, hy, 0, hx, hy, colorGlowR);
-  cg.addColorStop(0, `hsla(${h}, ${s}%, ${l + 15}%, ${brightness * 0.3})`);
-  cg.addColorStop(0.3, `hsla(${h}, ${s}%, ${l + 5}%, ${brightness * 0.12})`);
-  cg.addColorStop(0.6, `hsla(${h}, ${s}%, ${l}%, ${brightness * 0.03})`);
-  cg.addColorStop(1, `hsla(${h}, ${s}%, ${l - 10}%, 0)`);
-  ctx.fillStyle = cg;
-  ctx.beginPath();
-  ctx.arc(hx, hy, colorGlowR, 0, TAU);
-  ctx.fill();
-  ctx.restore();
+  const prominenceCount = 8 + Math.floor(drive * 10);
+  for (let i = 0; i < prominenceCount; i++) {
+    const seed = i * 2.618 + 0.5; // golden ratio spread
+    const baseAngle = (i / prominenceCount) * TAU + Math.sin(time * 0.7 + seed) * 0.3;
+    const len = R * (1.2 + Math.sin(time * 1.3 + seed * 3.7) * 0.5 + drive * 1.5);
+    const thickness = 2 + R * 0.08 + drive * 4;
+    const prominence_a = brightness * 0.25 * (0.4 + Math.sin(time * 2.5 + seed * 2.1) * 0.6);
 
-  // === Drive turbulence corona ===
-  if (drive > 0.03) {
-    ctx.save();
-    ctx.globalCompositeOperation = 'screen';
-    const coronaR = coreRadius * 2 + drive * 30;
-    const arcCount = 12 + Math.floor(drive * 12);
+    // Curved tendril (quadratic bezier)
+    const x1 = hx + Math.cos(baseAngle) * R * 0.7;
+    const y1 = hy + Math.sin(baseAngle) * R * 0.7;
+    const bend = Math.sin(time * 1.8 + seed * 4.3) * len * 0.4;
+    const perpAngle = baseAngle + Math.PI * 0.5;
+    const cpx = hx + Math.cos(baseAngle) * len * 0.6 + Math.cos(perpAngle) * bend;
+    const cpy = hy + Math.sin(baseAngle) * len * 0.6 + Math.sin(perpAngle) * bend;
+    const x2 = hx + Math.cos(baseAngle) * len;
+    const y2 = hy + Math.sin(baseAngle) * len;
 
-    for (let i = 0; i < arcCount; i++) {
-      const angle = (i / arcCount) * TAU + Math.sin(time * 8 + i * 0.7) * drive * 0.5;
-      const r = coronaR + Math.sin(time * 6 + i * 1.7) * drive * 8;
-      const arcLen = 0.15 + Math.random() * 0.4;
-      const flicker = 0.6 + Math.random() * 0.4;
-
-      ctx.beginPath();
-      ctx.arc(hx, hy, r, angle, angle + arcLen);
-      ctx.strokeStyle = `hsla(30, 95%, ${55 + drive * 25}%, ${drive * 0.4 * flicker})`;
-      ctx.lineWidth = 1.5 + drive * 3;
-      ctx.stroke();
-    }
-
-    // Fiery wisps extending outward
-    for (let i = 0; i < 4 + Math.floor(drive * 6); i++) {
-      const angle = (i / 10) * TAU + time * 1.5 + Math.sin(time * 3 + i) * 0.5;
-      const len = coreRadius + drive * 50 + Math.sin(time * 7 + i * 2.3) * 10;
-      const x2 = hx + Math.cos(angle) * len;
-      const y2 = hy + Math.sin(angle) * len;
-      const g = ctx.createLinearGradient(hx, hy, x2, y2);
-      g.addColorStop(0, `hsla(35, 100%, 70%, ${drive * 0.3})`);
-      g.addColorStop(0.5, `hsla(25, 100%, 55%, ${drive * 0.15})`);
-      g.addColorStop(1, 'hsla(15, 100%, 40%, 0)');
-      ctx.strokeStyle = g;
-      ctx.lineWidth = 1 + drive * 1.5;
-      ctx.beginPath();
-      ctx.moveTo(hx, hy);
-      // Curvy wisp
-      const cx = hx + Math.cos(angle + 0.3) * len * 0.6;
-      const cy = hy + Math.sin(angle + 0.3) * len * 0.6;
-      ctx.quadraticCurveTo(cx, cy, x2, y2);
-      ctx.stroke();
-    }
-    ctx.restore();
+    const tg = ctx.createLinearGradient(x1, y1, x2, y2);
+    tg.addColorStop(0, `hsla(40, 100%, 75%, ${prominence_a})`);
+    tg.addColorStop(0.4, `hsla(30, 95%, 60%, ${prominence_a * 0.6})`);
+    tg.addColorStop(0.8, `hsla(15, 90%, 45%, ${prominence_a * 0.2})`);
+    tg.addColorStop(1, 'hsla(5, 80%, 30%, 0)');
+    ctx.strokeStyle = tg;
+    ctx.lineWidth = thickness;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.quadraticCurveTo(cpx, cpy, x2, y2);
+    ctx.stroke();
   }
+  ctx.restore();
 
-  // === Chorus visual — swirling orbital aura ===
-  // Chorus = modulation/movement. Visual: orbiting light streaks + pulsing rings
+  // ── 3. CHORUS — orbital shimmer (effect layer) ──
   if (chorusMix > 0.02) {
     ctx.save();
     ctx.globalCompositeOperation = 'screen';
-    const chorusSpeed = 3 + chorusRate * 12; // rate controls rotation speed
-
-    // Pulsing blue aura that breathes with the chorus rate
-    const pulseR = coreRadius * (2 + chorusMix * 2) + Math.sin(time * chorusSpeed) * chorusMix * 15;
-    const pulseAlpha = chorusMix * 0.2;
-    const pg = ctx.createRadialGradient(hx, hy, coreRadius * 0.8, hx, hy, pulseR);
-    pg.addColorStop(0, `hsla(210, 80%, 70%, ${pulseAlpha * 0.8})`);
-    pg.addColorStop(0.5, `hsla(220, 70%, 55%, ${pulseAlpha * 0.3})`);
-    pg.addColorStop(1, 'hsla(230, 60%, 40%, 0)');
-    ctx.fillStyle = pg;
-    ctx.beginPath();
-    ctx.arc(hx, hy, pulseR, 0, TAU);
-    ctx.fill();
-
-    // Orbiting light streaks (3 pairs, counter-rotating)
-    const orbitR = coreRadius * 2.5 + chorusMix * 20;
+    const chorusSpeed = 3 + chorusRate * 12;
+    const orbitR = R * 2.2 + chorusMix * 20;
     for (let i = 0; i < 6; i++) {
       const dir = i < 3 ? 1 : -1;
       const angle = dir * time * chorusSpeed * 0.4 + (i % 3) * TAU / 3;
       const ox = hx + Math.cos(angle) * orbitR;
-      const oy = hy + Math.sin(angle) * orbitR * 0.6; // elliptical orbit
-      const streakLen = 12 + chorusMix * 20;
+      const oy = hy + Math.sin(angle) * orbitR * 0.6;
+      const streakLen = 10 + chorusMix * 18;
       const sx = ox - Math.cos(angle) * streakLen;
       const sy = oy - Math.sin(angle) * streakLen * 0.6;
-
       const sg = ctx.createLinearGradient(sx, sy, ox, oy);
       sg.addColorStop(0, 'hsla(210, 70%, 60%, 0)');
-      sg.addColorStop(0.5, `hsla(215, 80%, 70%, ${chorusMix * 0.4})`);
-      sg.addColorStop(1, `hsla(220, 90%, 85%, ${chorusMix * 0.6})`);
+      sg.addColorStop(0.5, `hsla(215, 80%, 70%, ${chorusMix * 0.35 * masterAlpha})`);
+      sg.addColorStop(1, `hsla(220, 90%, 85%, ${chorusMix * 0.5 * masterAlpha})`);
       ctx.strokeStyle = sg;
       ctx.lineWidth = 1.5 + chorusMix * 2;
-      ctx.beginPath();
-      ctx.moveTo(sx, sy);
-      ctx.lineTo(ox, oy);
-      ctx.stroke();
-
-      // Bright dot at streak tip
-      ctx.fillStyle = `hsla(210, 80%, 90%, ${chorusMix * 0.5})`;
-      ctx.beginPath();
-      ctx.arc(ox, oy, 2 + chorusMix * 2, 0, TAU);
-      ctx.fill();
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ox, oy); ctx.stroke();
+      ctx.fillStyle = `hsla(210, 80%, 90%, ${chorusMix * 0.4 * masterAlpha})`;
+      ctx.beginPath(); ctx.arc(ox, oy, 2 + chorusMix * 2, 0, TAU); ctx.fill();
     }
-
-    // Shimmer rings (thicker, more visible)
     for (let ring = 0; ring < 3; ring++) {
       const phase = ring * TAU / 3;
-      const r = orbitR + Math.sin(time * chorusSpeed + phase) * chorusMix * 15;
-      const alpha = chorusMix * 0.25 * (1 - ring * 0.2);
-      ctx.beginPath();
-      ctx.arc(hx, hy, Math.max(1, r), 0, TAU);
-      ctx.strokeStyle = `hsla(215, 70%, 75%, ${alpha})`;
-      ctx.lineWidth = 1 + chorusMix * 3;
+      const r = orbitR + Math.sin(time * chorusSpeed + phase) * chorusMix * 12;
+      const ra = chorusMix * 0.2 * (1 - ring * 0.2) * masterAlpha;
+      ctx.beginPath(); ctx.arc(hx, hy, Math.max(1, r), 0, TAU);
+      ctx.strokeStyle = `hsla(215, 70%, 75%, ${ra})`;
+      ctx.lineWidth = 1 + chorusMix * 2;
       ctx.stroke();
     }
-
     ctx.restore();
   }
 
-  // === Plasma mantle (realistic fireball layer) ===
+  // ── 4. SOLAR SURFACE — textured granulation cells ──
+  // Multiple plasma cells create a mottled, sun-like surface
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
-  // Multiple overlapping elliptical plasma blobs for organic look
-  for (let p = 0; p < 6; p++) {
-    const pAngle = (p / 6) * TAU + time * 1.8 + Math.sin(time * 2.3 + p * 1.1) * 0.5;
-    const pDist = coreRadius * 0.3 + Math.sin(time * 4.5 + p * 2.7) * coreRadius * 0.2;
-    const px = hx + Math.cos(pAngle) * pDist;
-    const py = hy + Math.sin(pAngle) * pDist;
-    const pR = coreRadius * (0.6 + Math.sin(time * 3.2 + p * 1.9) * 0.2);
-    const plasmaAlpha = brightness * 0.18;
+  const cellCount = 10;
+  for (let i = 0; i < cellCount; i++) {
+    const seed = i * 3.14159 + 1.732;
+    const cellAngle = (i / cellCount) * TAU + Math.sin(time * 0.9 + seed) * 0.4;
+    const cellDist = R * (0.15 + Math.sin(time * 1.1 + seed * 2.3) * 0.15);
+    const cx2 = hx + Math.cos(cellAngle) * cellDist;
+    const cy2 = hy + Math.sin(cellAngle) * cellDist;
+    const cellR = R * (0.35 + Math.sin(time * 1.7 + seed * 1.5) * 0.1);
+    const cellBright = brightness * (0.15 + Math.sin(time * 2.3 + seed * 3.1) * 0.08);
 
-    const pg = ctx.createRadialGradient(px, py, 0, px, py, pR);
-    pg.addColorStop(0, `hsla(${h + 10}, ${s + 10}%, 80%, ${plasmaAlpha})`);
-    pg.addColorStop(0.4, `hsla(${h}, ${s}%, 60%, ${plasmaAlpha * 0.5})`);
-    pg.addColorStop(1, `hsla(${h - 10}, ${s}%, 40%, 0)`);
-    ctx.fillStyle = pg;
-    ctx.beginPath();
-    ctx.arc(px, py, pR, 0, TAU);
-    ctx.fill();
-  }
-
-  // Heat shimmer (turbulent outer envelope)
-  const shimmerCount = 8 + Math.floor(drive * 8);
-  for (let i = 0; i < shimmerCount; i++) {
-    const sAngle = (i / shimmerCount) * TAU + time * 2.5;
-    const sR = coreRadius * 1.4 + Math.sin(time * 5.1 + i * 3.3) * coreRadius * 0.4;
-    const sx = hx + Math.cos(sAngle) * sR * 0.15;
-    const sy = hy + Math.sin(sAngle) * sR * 0.15;
-    const shimAlpha = brightness * 0.06 * (0.5 + Math.sin(time * 7 + i * 2.1) * 0.5);
-    const sg = ctx.createRadialGradient(sx, sy, sR * 0.5, sx, sy, sR);
-    sg.addColorStop(0, `hsla(${h + 15}, ${s}%, 70%, ${shimAlpha})`);
-    sg.addColorStop(1, `hsla(${h}, ${s}%, 50%, 0)`);
-    ctx.fillStyle = sg;
-    ctx.fillRect(sx - sR, sy - sR, sR * 2, sR * 2);
+    const cg = ctx.createRadialGradient(cx2, cy2, 0, cx2, cy2, cellR);
+    cg.addColorStop(0, `hsla(45, 100%, 85%, ${cellBright})`);
+    cg.addColorStop(0.3, `hsla(38, 95%, 65%, ${cellBright * 0.6})`);
+    cg.addColorStop(0.7, `hsla(25, 90%, 45%, ${cellBright * 0.2})`);
+    cg.addColorStop(1, 'hsla(15, 80%, 30%, 0)');
+    ctx.fillStyle = cg;
+    ctx.beginPath(); ctx.arc(cx2, cy2, cellR, 0, TAU); ctx.fill();
   }
   ctx.restore();
 
-  // === Inner core (white-hot) ===
-  const eqHigh = ccSmoothed[SLOT_EQ_HIGH];
-  const eqLow = ccSmoothed[SLOT_EQ_LOW];
-  const warmth = eqLow - eqHigh;
-  let coreHue = 40, coreSat = 15;
-  if (warmth > 0.1) { coreHue = 30 + warmth * 20; coreSat = 30 + warmth * 40; }
-  else if (warmth < -0.1) { coreHue = 210 + warmth * 30; coreSat = 20 - warmth * 30; }
-
-  const coreGrad = ctx.createRadialGradient(hx, hy, 0, hx, hy, coreRadius);
-  coreGrad.addColorStop(0, `hsla(${coreHue}, ${coreSat}%, 98%, ${brightness})`);
-  coreGrad.addColorStop(0.15, `hsla(${coreHue}, ${coreSat + 10}%, 92%, ${brightness * 0.9})`);
-  coreGrad.addColorStop(0.35, `hsla(${h}, ${s}%, ${l + 25}%, ${brightness * 0.5})`);
-  coreGrad.addColorStop(0.7, `hsla(${h}, ${s}%, ${l}%, ${brightness * 0.15})`);
-  coreGrad.addColorStop(1, `hsla(${h}, ${s}%, ${l - 15}%, 0)`);
-
+  // ── 5. MAIN BODY — deep amber/orange fireball sphere ──
+  const coreGrad = ctx.createRadialGradient(hx - R * 0.15, hy - R * 0.15, 0, hx, hy, R);
+  coreGrad.addColorStop(0, `hsla(50, 100%, 95%, ${brightness})`);      // white-yellow center
+  coreGrad.addColorStop(0.1, `hsla(45, 100%, 85%, ${brightness * 0.95})`);
+  coreGrad.addColorStop(0.25, `hsla(38, 95%, 70%, ${brightness * 0.8})`); // bright yellow-orange
+  coreGrad.addColorStop(0.5, `hsla(28, 95%, 55%, ${brightness * 0.65})`); // deep orange
+  coreGrad.addColorStop(0.75, `hsla(15, 90%, 40%, ${brightness * 0.4})`); // burnt orange
+  coreGrad.addColorStop(0.9, `hsla(5, 85%, 28%, ${brightness * 0.2})`);   // dark red edge
+  coreGrad.addColorStop(1, `hsla(0, 80%, 18%, 0)`);                        // fade out
   ctx.fillStyle = coreGrad;
-  ctx.beginPath();
-  ctx.arc(hx, hy, coreRadius, 0, TAU);
-  ctx.fill();
+  ctx.beginPath(); ctx.arc(hx, hy, R, 0, TAU); ctx.fill();
 
-  // === Brilliant white center bloom ===
+  // ── 6. SURFACE DETAIL — dark convection boundaries (solar granulation) ──
+  ctx.save();
+  ctx.globalCompositeOperation = 'multiply';
+  for (let i = 0; i < 8; i++) {
+    const seed = i * 4.17 + 2.33;
+    const da = (i / 8) * TAU + Math.sin(time * 0.6 + seed) * 0.5;
+    const dd = R * (0.2 + Math.sin(time * 0.8 + seed * 1.7) * 0.15);
+    const dx = hx + Math.cos(da) * dd;
+    const dy = hy + Math.sin(da) * dd;
+    const dr = R * (0.2 + Math.sin(time * 1.2 + seed * 2.5) * 0.08);
+    const darkAlpha = 0.08 + drive * 0.06;
+
+    const dg = ctx.createRadialGradient(dx, dy, 0, dx, dy, dr);
+    dg.addColorStop(0, `hsla(10, 70%, 20%, ${darkAlpha * masterAlpha})`);
+    dg.addColorStop(0.6, `hsla(15, 60%, 30%, ${darkAlpha * 0.3 * masterAlpha})`);
+    dg.addColorStop(1, 'hsla(20, 50%, 40%, 0)');
+    ctx.fillStyle = dg;
+    ctx.beginPath(); ctx.arc(dx, dy, dr, 0, TAU); ctx.fill();
+  }
+  ctx.restore();
+
+  // ── 7. HOT SPOTS — bright yellow-white patches ──
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
-  const bloomR = coreRadius * 0.5;
-  const bloom = ctx.createRadialGradient(hx, hy, 0, hx, hy, bloomR);
-  bloom.addColorStop(0, `rgba(255, 255, 255, ${brightness * 0.95})`);
-  bloom.addColorStop(0.5, `rgba(255, 255, 250, ${brightness * 0.4})`);
-  bloom.addColorStop(1, 'rgba(255, 255, 255, 0)');
-  ctx.fillStyle = bloom;
-  ctx.beginPath();
-  ctx.arc(hx, hy, bloomR, 0, TAU);
-  ctx.fill();
+  for (let i = 0; i < 5; i++) {
+    const seed = i * 5.31 + 0.77;
+    const ha = (i / 5) * TAU + time * 0.4 + Math.sin(time * 1.5 + seed) * 0.6;
+    const hd = R * (0.1 + Math.sin(time * 2.1 + seed * 1.9) * 0.2);
+    const hpx = hx + Math.cos(ha) * hd;
+    const hpy = hy + Math.sin(ha) * hd;
+    const hr = R * (0.15 + Math.sin(time * 2.7 + seed * 3.3) * 0.05);
+    const hotAlpha = brightness * (0.2 + Math.sin(time * 3.1 + seed * 2.7) * 0.1);
 
-  // Cross-shaped lens flare (cinematic) — wider and softer
-  const flareLen = coreRadius * 4 + rms * 60;
-  const flareAlpha = brightness * 0.18;
+    const hg = ctx.createRadialGradient(hpx, hpy, 0, hpx, hpy, hr);
+    hg.addColorStop(0, `hsla(55, 100%, 95%, ${hotAlpha})`);
+    hg.addColorStop(0.3, `hsla(48, 100%, 80%, ${hotAlpha * 0.5})`);
+    hg.addColorStop(1, 'hsla(40, 95%, 65%, 0)');
+    ctx.fillStyle = hg;
+    ctx.beginPath(); ctx.arc(hpx, hpy, hr, 0, TAU); ctx.fill();
+  }
+  ctx.restore();
 
-  // Horizontal flare (strongest — elongated fireball feel)
-  const hFlareGrad = ctx.createLinearGradient(hx - flareLen, hy, hx + flareLen, hy);
-  hFlareGrad.addColorStop(0, 'rgba(255, 240, 220, 0)');
-  hFlareGrad.addColorStop(0.3, `rgba(255, 240, 220, ${flareAlpha * 0.3})`);
-  hFlareGrad.addColorStop(0.5, `rgba(255, 255, 255, ${flareAlpha})`);
-  hFlareGrad.addColorStop(0.7, `rgba(255, 240, 220, ${flareAlpha * 0.3})`);
-  hFlareGrad.addColorStop(1, 'rgba(255, 240, 220, 0)');
-  ctx.strokeStyle = hFlareGrad;
-  ctx.lineWidth = 1.5;
+  // ── 8. LIMB DARKENING — subtle darker edge for 3D spherical look ──
+  const limbGrad = ctx.createRadialGradient(hx, hy, R * 0.7, hx, hy, R);
+  limbGrad.addColorStop(0, 'hsla(0, 0%, 0%, 0)');
+  limbGrad.addColorStop(0.7, `hsla(10, 80%, 20%, ${brightness * 0.08})`);
+  limbGrad.addColorStop(1, `hsla(0, 70%, 12%, ${brightness * 0.2})`);
+  ctx.fillStyle = limbGrad;
+  ctx.beginPath(); ctx.arc(hx, hy, R, 0, TAU); ctx.fill();
+
+  // ── 9. SPECULAR HIGHLIGHT — bright spot for 3D depth ──
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  const specR = R * 0.35;
+  const specX = hx - R * 0.2;
+  const specY = hy - R * 0.2;
+  const specGrad = ctx.createRadialGradient(specX, specY, 0, specX, specY, specR);
+  specGrad.addColorStop(0, `rgba(255, 255, 240, ${brightness * 0.5})`);
+  specGrad.addColorStop(0.4, `rgba(255, 250, 220, ${brightness * 0.15})`);
+  specGrad.addColorStop(1, 'rgba(255, 245, 200, 0)');
+  ctx.fillStyle = specGrad;
+  ctx.beginPath(); ctx.arc(specX, specY, specR, 0, TAU); ctx.fill();
+  ctx.restore();
+
+  // ── 10. LENS FLARE — cinematic ──
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  const flareLen = R * 3.5 + rms * 40;
+  const flareAlpha = brightness * 0.12;
+  const fg = ctx.createLinearGradient(hx - flareLen, hy, hx + flareLen, hy);
+  fg.addColorStop(0, 'rgba(255, 240, 200, 0)');
+  fg.addColorStop(0.35, `rgba(255, 240, 200, ${flareAlpha * 0.3})`);
+  fg.addColorStop(0.5, `rgba(255, 255, 240, ${flareAlpha})`);
+  fg.addColorStop(0.65, `rgba(255, 240, 200, ${flareAlpha * 0.3})`);
+  fg.addColorStop(1, 'rgba(255, 240, 200, 0)');
+  ctx.strokeStyle = fg;
+  ctx.lineWidth = 1.2;
   ctx.beginPath(); ctx.moveTo(hx - flareLen, hy); ctx.lineTo(hx + flareLen, hy); ctx.stroke();
-
-  // Vertical flare (softer)
-  ctx.strokeStyle = `rgba(255, 255, 255, ${flareAlpha * 0.6})`;
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(hx, hy - flareLen * 0.7); ctx.lineTo(hx, hy + flareLen * 0.7); ctx.stroke();
-
-  // Diagonal flares (fainter)
-  const dfl = flareLen * 0.45;
-  ctx.strokeStyle = `rgba(255, 250, 240, ${flareAlpha * 0.3})`;
-  ctx.lineWidth = 0.7;
-  ctx.beginPath(); ctx.moveTo(hx - dfl, hy - dfl); ctx.lineTo(hx + dfl, hy + dfl); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(hx + dfl, hy - dfl); ctx.lineTo(hx - dfl, hy + dfl); ctx.stroke();
-
   ctx.restore();
 }
 
