@@ -197,6 +197,10 @@
   min-height: 0;
 }
 
+#ls-sheet-panel[hidden] {
+  display: none;
+}
+
 .ls-viewer__header {
   display: flex;
   align-items: center;
@@ -255,6 +259,10 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
+}
+
+#ls-setlist-panel[hidden] {
+  display: none;
 }
 
 .ls-setlist-editor-header {

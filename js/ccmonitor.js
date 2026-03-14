@@ -5,6 +5,10 @@ import * as midi from './midi.js';
 const STORAGE_KEY = 'cc-monitor-groups';
 const USER_PRESETS_KEY = 'cc-monitor-user-presets';
 const ACTIVE_PRESET_KEY = 'cc-monitor-active-preset';
+const OSC_DEVICE_KEY = 'cc-monitor-osc-device';
+
+// Preferred audio input keywords (matched case-insensitively against device labels)
+const OSC_PREFERRED_DEVICES = ['xr18', 'x air', 'behringer'];
 
 let panel = null;
 let userPresets = {};  // name → group config (same shape as PRESETS entries)
@@ -14,6 +18,15 @@ const ccState = new Map();   // cc# → { value, groupName, barEl, valEl, labelE
 let groups = {};             // groupName → { color, ccs: { cc#: label } }
 let draggingGroupName = null; // track which group is being dragged
 let layoutMode = 'vertical';  // 'vertical' | 'horizontal'
+
+/* ── Oscilloscope state ──────────────────────────────────────────── */
+let oscCtx = null;          // AudioContext
+let oscAnalyser = null;     // AnalyserNode
+let oscCanvas = null;       // <canvas>
+let oscCCtx = null;         // canvas 2d context
+let oscStream = null;       // MediaStream from getUserMedia
+let oscRafId = null;        // requestAnimationFrame id
+let oscCollapsed = false;
 
 // Palette for group colors
 const GROUP_COLORS = [
@@ -43,6 +56,18 @@ const PRESETS = {
     'Simple Delay':   { color: 3, icon: 'Delay',       bypassCC: 43, ccs: { 19: 'Feedback', 17: 'Mix', 20: 'Scale', 18: 'Time' } },
     'Simple EQ':      { color: 4, icon: 'EQ',          bypassCC: 82, ccs: { 24: 'High Gain', 22: 'Low Gain', 21: 'Mid Freq', 23: 'Mid Gain' } },
     'Trinity Chorus': { color: 5, icon: 'Modulation',  bypassCC: 15, ccs: { 12: 'Mix', 13: 'Rate' } },
+  },
+  'Take 5': {
+    'OSC 1':      { color: 0, ccs: { 8: 'Octave', 9: 'Fine', 10: 'Shape', 40: 'Level', 65: 'Glide' } },
+    'OSC 2':      { color: 7, ccs: { 13: 'Octave', 14: 'Fine', 15: 'Shape', 41: 'Level', 66: 'Glide' } },
+    'Mixer':      { color: 3, ccs: { 42: 'Sub', 43: 'Noise' } },
+    'Filter':     { color: 1, ccs: { 33: 'Cutoff', 34: 'Resonance', 35: 'Drive', 36: 'Key Trk' } },
+    'Filter Env': { color: 2, ccs: { 45: 'Delay', 46: 'Attack', 47: 'Decay', 48: 'Sustain', 49: 'Release', 50: 'Amount', 51: 'Velocity' } },
+    'Amp Env':    { color: 4, ccs: { 52: 'Delay', 53: 'Attack', 54: 'Decay', 55: 'Sustain', 56: 'Release', 57: 'Amount', 58: 'Velocity' } },
+    'LFO 1':      { color: 5, ccs: { 75: 'Rate', 76: 'Amount', 77: 'Shape' } },
+    'LFO 2':      { color: 5, ccs: { 80: 'Rate', 81: 'Amount', 82: 'Shape' } },
+    'Effects':    { color: 6, ccs: { 16: 'On/Off', 17: 'Type', 18: 'Depth', 19: 'Time', 20: 'Feedback' } },
+    'Reverb':     { color: 1, ccs: { 23: 'On/Off', 24: 'Mix', 25: 'Size', 26: 'Pre-Dly', 27: 'Decay', 28: 'Tone' } },
   },
 };
 
@@ -951,6 +976,259 @@ function applyLayout() {
   if (btn) btn.title = layoutMode === 'vertical' ? 'Switch to horizontal' : 'Switch to vertical';
 }
 
+/* ── Oscilloscope ────────────────────────────────────────────────── */
+
+function buildOscilloscope() {
+  const section = document.createElement('div');
+  section.className = 'ccm-osc';
+  section.innerHTML =
+    '<div class="ccm-osc-header">' +
+      '<button class="ccm-osc-toggle" id="ccm-osc-toggle">&#9660;</button>' +
+      '<span class="ccm-osc-title">Oscilloscope</span>' +
+      '<select class="ccm-osc-device" id="ccm-osc-device"><option value="">Select audio input…</option></select>' +
+      '<button class="btn btn--ghost ccm-osc-stop" id="ccm-osc-stop">Stop</button>' +
+    '</div>' +
+    '<div class="ccm-osc-body" id="ccm-osc-body">' +
+      '<canvas class="ccm-osc-canvas" id="ccm-osc-canvas"></canvas>' +
+    '</div>';
+  return section;
+}
+
+async function populateAudioDevices(preserveSelection) {
+  const select = panel ? panel.querySelector('#ccm-osc-device') : null;
+  if (!select) return;
+
+  const currentVal = preserveSelection ? select.value : null;
+
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const audioInputs = devices.filter(d => d.kind === 'audioinput');
+
+  // Rebuild options (keep the "Select..." placeholder)
+  while (select.options.length > 1) select.remove(1);
+
+  for (let i = 0; i < audioInputs.length; i++) {
+    const dev = audioInputs[i];
+    const opt = document.createElement('option');
+    // Use deviceId if available, otherwise use a fallback index marker
+    opt.value = dev.deviceId || `__idx_${i}`;
+    opt.textContent = dev.label || `Audio Input ${i + 1}`;
+    select.appendChild(opt);
+  }
+
+  // Restore previous selection if re-populating
+  if (currentVal) {
+    select.value = currentVal;
+    return;
+  }
+
+  // Auto-select: try saved device, then match preferred keywords
+  const hasLabels = audioInputs.some(d => d.label);
+  if (hasLabels && !oscAnalyser) {
+    const savedId = localStorage.getItem(OSC_DEVICE_KEY);
+    let autoId = null;
+
+    if (savedId && audioInputs.some(d => d.deviceId === savedId)) {
+      autoId = savedId;
+    } else {
+      for (const dev of audioInputs) {
+        const lbl = (dev.label || '').toLowerCase();
+        if (OSC_PREFERRED_DEVICES.some(kw => lbl.includes(kw))) {
+          autoId = dev.deviceId;
+          break;
+        }
+      }
+    }
+
+    if (autoId) {
+      select.value = autoId;
+      startOscilloscope(autoId);
+    }
+  }
+}
+
+async function startOscilloscope(deviceId) {
+  stopOscilloscope();
+
+  // Strip fallback index markers — these mean "no real deviceId available yet"
+  const realId = (deviceId && !deviceId.startsWith('__idx_')) ? deviceId : null;
+
+  // Try specific device first, then fall back to any audio input
+  const attempts = [];
+  if (realId) {
+    attempts.push({ audio: { deviceId: { exact: realId } } });
+    attempts.push({ audio: { deviceId: { ideal: realId } } });
+  }
+  attempts.push({ audio: true });
+
+  for (const constraints of attempts) {
+    try {
+      oscStream = await navigator.mediaDevices.getUserMedia(constraints);
+      break;
+    } catch (e) {
+      console.warn('Oscilloscope: getUserMedia failed —', e.name, e.message);
+      oscStream = null;
+    }
+  }
+
+  if (!oscStream) {
+    bus.emit('toast', 'Could not access audio — go to browser site settings and allow microphone for this page');
+    return;
+  }
+
+  // Permission now granted — re-populate dropdown with real device labels
+  await populateAudioDevices(true);
+
+  // Set dropdown to reflect the actual device the browser gave us
+  const select = panel.querySelector('#ccm-osc-device');
+  const activeTrack = oscStream.getAudioTracks()[0];
+  const settings = activeTrack ? activeTrack.getSettings() : {};
+  if (settings.deviceId && select) {
+    select.value = settings.deviceId;
+    localStorage.setItem(OSC_DEVICE_KEY, settings.deviceId);
+  }
+
+  oscCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const source = oscCtx.createMediaStreamSource(oscStream);
+  oscAnalyser = oscCtx.createAnalyser();
+  oscAnalyser.fftSize = 2048;
+  source.connect(oscAnalyser);
+
+  resizeOscCanvas();
+  drawOscilloscope();
+  bus.emit('audio:started', { ctx: oscCtx, stream: oscStream });
+}
+
+function stopOscilloscope() {
+  bus.emit('audio:stopped');
+  if (oscRafId) { cancelAnimationFrame(oscRafId); oscRafId = null; }
+  if (oscStream) { oscStream.getTracks().forEach(t => t.stop()); oscStream = null; }
+  if (oscCtx) { oscCtx.close().catch(() => {}); oscCtx = null; }
+  oscAnalyser = null;
+
+  drawOscIdle();
+}
+
+function resizeOscCanvas() {
+  if (!oscCanvas || !oscCCtx) return;
+  const parent = oscCanvas.parentElement;
+  if (!parent) return;
+  const rect = parent.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) return; // hidden tab
+  const dpr = window.devicePixelRatio || 1;
+  oscCanvas.width = rect.width * dpr;
+  oscCanvas.height = rect.height * dpr;
+  oscCCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function drawOscilloscope() {
+  if (!oscAnalyser || !oscCCtx || !oscCanvas) return;
+  oscRafId = requestAnimationFrame(drawOscilloscope);
+
+  // Lazy-resize: if canvas is still 0x0 (was hidden at start), try now
+  if (oscCanvas.width === 0 || oscCanvas.height === 0) {
+    resizeOscCanvas();
+    if (oscCanvas.width === 0) return; // still hidden, skip frame
+  }
+
+  const bufLen = oscAnalyser.frequencyBinCount;
+  const data = new Uint8Array(bufLen);
+  oscAnalyser.getByteTimeDomainData(data);
+
+  const dpr = window.devicePixelRatio || 1;
+  const w = oscCanvas.width / dpr;
+  const h = oscCanvas.height / dpr;
+
+  // Clear
+  oscCCtx.fillStyle = '#08080c';
+  oscCCtx.fillRect(0, 0, w, h);
+
+  // Grid lines
+  oscCCtx.strokeStyle = 'rgba(255,255,255,0.04)';
+  oscCCtx.lineWidth = 0.5;
+  for (let i = 1; i < 4; i++) {
+    const y = (h / 4) * i;
+    oscCCtx.beginPath(); oscCCtx.moveTo(0, y); oscCCtx.lineTo(w, y); oscCCtx.stroke();
+  }
+  for (let i = 1; i < 8; i++) {
+    const x = (w / 8) * i;
+    oscCCtx.beginPath(); oscCCtx.moveTo(x, 0); oscCCtx.lineTo(x, h); oscCCtx.stroke();
+  }
+
+  // Center line
+  oscCCtx.strokeStyle = 'rgba(0, 240, 255, 0.1)';
+  oscCCtx.lineWidth = 0.5;
+  oscCCtx.beginPath(); oscCCtx.moveTo(0, h / 2); oscCCtx.lineTo(w, h / 2); oscCCtx.stroke();
+
+  // Waveform
+  oscCCtx.lineWidth = 1.5;
+  oscCCtx.strokeStyle = '#00f0ff';
+  oscCCtx.shadowColor = 'rgba(0, 240, 255, 0.5)';
+  oscCCtx.shadowBlur = 4;
+  oscCCtx.beginPath();
+
+  const sliceW = w / bufLen;
+  let x = 0;
+  for (let i = 0; i < bufLen; i++) {
+    const v = data[i] / 128.0;
+    const y = (v * h) / 2;
+    if (i === 0) oscCCtx.moveTo(x, y);
+    else oscCCtx.lineTo(x, y);
+    x += sliceW;
+  }
+  oscCCtx.stroke();
+  oscCCtx.shadowBlur = 0;
+}
+
+function drawOscIdle() {
+  if (!oscCCtx || !oscCanvas) return;
+  if (oscCanvas.width === 0 || oscCanvas.height === 0) resizeOscCanvas();
+  const dpr = window.devicePixelRatio || 1;
+  const w = oscCanvas.width / dpr;
+  const h = oscCanvas.height / dpr;
+
+  oscCCtx.fillStyle = '#08080c';
+  oscCCtx.fillRect(0, 0, w, h);
+
+  // Grid
+  oscCCtx.strokeStyle = 'rgba(255,255,255,0.04)';
+  oscCCtx.lineWidth = 0.5;
+  for (let i = 1; i < 4; i++) {
+    const y = (h / 4) * i;
+    oscCCtx.beginPath(); oscCCtx.moveTo(0, y); oscCCtx.lineTo(w, y); oscCCtx.stroke();
+  }
+  for (let i = 1; i < 8; i++) {
+    const x = (w / 8) * i;
+    oscCCtx.beginPath(); oscCCtx.moveTo(x, 0); oscCCtx.lineTo(x, h); oscCCtx.stroke();
+  }
+
+  // Center line
+  oscCCtx.strokeStyle = 'rgba(0, 240, 255, 0.15)';
+  oscCCtx.lineWidth = 1;
+  oscCCtx.setLineDash([4, 4]);
+  oscCCtx.beginPath(); oscCCtx.moveTo(0, h / 2); oscCCtx.lineTo(w, h / 2); oscCCtx.stroke();
+  oscCCtx.setLineDash([]);
+}
+
+function initOscCanvas() {
+  oscCanvas = panel.querySelector('#ccm-osc-canvas');
+  if (!oscCanvas) return;
+  oscCCtx = oscCanvas.getContext('2d');
+  resizeOscCanvas();
+  drawOscIdle();
+}
+
+function toggleOscCollapse() {
+  oscCollapsed = !oscCollapsed;
+  const body = panel.querySelector('#ccm-osc-body');
+  const btn = panel.querySelector('#ccm-osc-toggle');
+  if (body) body.hidden = oscCollapsed;
+  if (btn) btn.textContent = oscCollapsed ? '\u25B6' : '\u25BC';
+}
+
+export function getAudioSource() {
+  return { ctx: oscCtx, stream: oscStream };
+}
+
 /* ── Init ─────────────────────────────────────────────────────────── */
 export function init() {
   panel = $('#ccmonitor-panel');
@@ -960,6 +1238,7 @@ export function init() {
 
   panel.innerHTML =
     '<div class="ccm-toolbar">' +
+      '<img class="ccm-brand-icon" src="assets/hx-edit-icon.png" alt="" width="28" height="28">' +
       '<span class="ccm-title">Helix Monitor</span>' +
       '<select class="ccm-preset-select" id="ccm-preset-select"></select>' +
       '<button class="btn btn--ghost ccm-save-preset" id="ccm-save-preset">Save</button>' +
@@ -970,6 +1249,11 @@ export function init() {
       '<button class="btn btn--ghost ccm-clear" id="ccm-clear">Clear</button>' +
     '</div>' +
     '<div class="ccm-groups" id="ccm-groups"></div>';
+
+  // Insert oscilloscope section between toolbar and groups
+  const oscSection = buildOscilloscope();
+  panel.insertBefore(oscSection, panel.querySelector('.ccm-groups'));
+  initOscCanvas();
 
   groupsContainer = panel.querySelector('#ccm-groups');
   rebuildPresetDropdown('');
@@ -1058,4 +1342,40 @@ export function init() {
   // Attach direct LCXL listener so CC Monitor works without routes
   attachLCXLListener();
   bus.on('midi:devices-changed', () => attachLCXLListener());
+
+  // Oscilloscope wiring — defer canvas init until tab is visible
+  bus.on('tab:changed', (tabId) => {
+    if (tabId === 'ccmonitor') {
+      resizeOscCanvas();
+      if (oscAnalyser) {
+        // Restart draw loop (it may have been rendering to a 0x0 canvas)
+        if (oscRafId) cancelAnimationFrame(oscRafId);
+        drawOscilloscope();
+      } else {
+        drawOscIdle();
+      }
+    }
+  });
+  // Oscilloscope controls
+  populateAudioDevices();
+  panel.querySelector('#ccm-osc-device').addEventListener('change', (e) => {
+    if (e.target.value) {
+      localStorage.setItem(OSC_DEVICE_KEY, e.target.value);
+      startOscilloscope(e.target.value);
+    } else {
+      stopOscilloscope();
+    }
+  });
+  panel.querySelector('#ccm-osc-stop').addEventListener('click', () => {
+    stopOscilloscope();
+    localStorage.removeItem(OSC_DEVICE_KEY);
+    panel.querySelector('#ccm-osc-device').value = '';
+  });
+  panel.querySelector('#ccm-osc-toggle').addEventListener('click', toggleOscCollapse);
+
+  // Re-enumerate if devices change (e.g. plugging in audio interface)
+  navigator.mediaDevices.addEventListener('devicechange', populateAudioDevices);
+
+  // Resize canvas on window resize
+  window.addEventListener('resize', resizeOscCanvas);
 }

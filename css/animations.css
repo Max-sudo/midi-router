@@ -94,7 +94,7 @@
 
 .route-editor {
   position: fixed;
-  top: 56px;
+  top: 82px;
   right: 0;
   bottom: 32px;
   width: 300px;
@@ -139,7 +139,7 @@
 /* Program Change editor panel (left side) */
 .pc-editor {
   position: fixed;
-  top: 56px;
+  top: 82px;
   left: 0;
   bottom: 32px;
   width: 320px;

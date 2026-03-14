@@ -20,6 +20,11 @@
   flex-shrink: 0;
 }
 
+.ccm-brand-icon {
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
 .ccm-title {
   font-size: 13px;
   font-weight: 600;
@@ -659,6 +664,114 @@
 
 .ccm--horizontal .ccm-group--drop-after {
   box-shadow: 0 3px 0 0 var(--group-fill), 0 3px 12px 0 var(--group-glow);
+}
+
+/* ── Oscilloscope ────────────────────────────────────────────────── */
+.ccm-osc {
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.ccm-osc-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 6px 20px;
+  background: linear-gradient(180deg, #111115 0%, #0c0c10 100%);
+}
+
+.ccm-osc-toggle {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 10px;
+  cursor: pointer;
+  padding: 2px 4px;
+  line-height: 1;
+  transition: color 150ms ease;
+}
+
+.ccm-osc-toggle:hover {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.ccm-osc-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+
+.ccm-osc-device {
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-family: var(--font-family);
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  outline: none;
+  max-width: 300px;
+  transition: border-color 150ms ease;
+}
+
+.ccm-osc-device:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.ccm-osc-device:focus {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.ccm-osc-start {
+  flex-shrink: 0;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: rgba(0, 240, 255, 0.6);
+  border-color: rgba(0, 240, 255, 0.2);
+  background: rgba(0, 240, 255, 0.04);
+  padding: 4px 12px;
+  transition: all 150ms ease;
+}
+
+.ccm-osc-start:hover {
+  color: rgba(0, 240, 255, 0.9);
+  border-color: rgba(0, 240, 255, 0.4);
+  background: rgba(0, 240, 255, 0.08);
+}
+
+.ccm-osc-stop {
+  flex-shrink: 0;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.35);
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  padding: 4px 10px;
+  transition: all 150ms ease;
+}
+
+.ccm-osc-stop:hover {
+  color: rgba(255, 45, 85, 0.7);
+  border-color: rgba(255, 45, 85, 0.3);
+}
+
+.ccm-osc-body {
+  height: 120px;
+  background: #08080c;
+  padding: 0;
+}
+
+.ccm-osc-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 /* ── Save confirmation flash ─────────────────────────────────────── */

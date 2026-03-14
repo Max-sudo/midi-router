@@ -302,108 +302,6 @@
   pointer-events: auto;
 }
 
-/* ── AV Sync ───────────────────────────────────────────────────── */
-
-.avsync-container {
-  width: 100%;
-  max-width: 720px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-}
-
-.avsync-file-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-4);
-}
-
-.file-slot {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
-  padding: var(--space-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.file-slot__label {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.file-slot__row {
-  display: flex;
-  gap: var(--space-2);
-}
-
-.file-slot__meta {
-  font-size: var(--font-size-xs);
-  color: var(--text-tertiary);
-  font-family: var(--font-mono);
-  min-height: 1.4em;
-}
-
-.avsync-path-input {
-  flex: 1;
-  min-width: 0;
-}
-
-.avsync-section {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
-  padding: var(--space-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.avsync-action-btn {
-  align-self: flex-start;
-}
-
-.avsync-offset-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.avsync-output-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.avsync-output-row .field__label {
-  margin-bottom: 0;
-  white-space: nowrap;
-}
-
-.avsync-result {
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
-  font-family: var(--font-mono);
-}
-
-.avsync-result--success {
-  color: var(--accent-green);
-}
-
-.avsync-status {
-  font-size: var(--font-size-xs);
-  color: var(--text-tertiary);
-  text-align: center;
-}
-
-.avsync-status--error {
-  color: var(--accent-magenta);
-}
-
 /* Progress bar */
 .progress-bar {
   position: relative;
@@ -1058,4 +956,44 @@
   color: var(--text-primary);
   user-select: none;
   line-height: 1;
+}
+
+/* ── MIDI Permission Help ──────────────────────────────────────────── */
+.status-bar__help {
+  background: none;
+  border: 1px solid var(--accent-cyan);
+  border-radius: var(--radius-sm);
+  color: var(--accent-cyan);
+  font-size: 10px;
+  padding: 0 6px;
+  margin-left: var(--space-2);
+  cursor: pointer;
+  line-height: 18px;
+}
+
+.status-bar__help:hover {
+  background: rgba(0, 240, 255, 0.1);
+}
+
+.midi-help-popup {
+  position: absolute;
+  bottom: 36px;
+  left: var(--space-6);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  max-width: 320px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+}
+
+.midi-help-popup p {
+  margin: 0 0 var(--space-2);
+}
+
+.midi-help-popup p:last-child {
+  margin-bottom: 0;
 }

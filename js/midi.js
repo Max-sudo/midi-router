@@ -11,14 +11,18 @@ export async function init() {
     return false;
   }
   try {
-    midiAccess = await navigator.requestMIDIAccess({ sysex: true });
-    midiAccess.onstatechange = handleStateChange;
-    bus.emit('midi:ready', getDevices());
-    return true;
+    midiAccess = await navigator.requestMIDIAccess({ sysex: false });
+    // Try upgrading to sysex for Launchpad Pro support
+    try {
+      midiAccess = await navigator.requestMIDIAccess({ sysex: true });
+    } catch { /* sysex upgrade failed, continue without it */ }
   } catch (err) {
     bus.emit('midi:error', `MIDI access denied: ${err.message}`);
     return false;
   }
+  midiAccess.onstatechange = handleStateChange;
+  bus.emit('midi:ready', getDevices());
+  return true;
 }
 
 // ── Device filtering ───────────────────────────────────────────────

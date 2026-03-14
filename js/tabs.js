@@ -4,7 +4,7 @@ import { bus, $, $$ } from './utils.js';
 let activeTab = 'home';
 
 // Core tabs that cannot be deleted
-const CORE_TABS = new Set(['home', 'midi', 'avsync', 'launchpad']);
+const CORE_TABS = new Set(['home', 'chat', 'midi', 'launchpad', 'leadsheets', 'ccmonitor']);
 
 export function getActiveTab() {
   return activeTab;
@@ -101,6 +101,7 @@ export function init() {
 function _addCloseButton(btn) {
   const tabId = btn.dataset.tab;
   if (CORE_TABS.has(tabId)) return;
+  if (btn.querySelector('.tab-btn__close')) return;
 
   btn.classList.add('tab-btn--deletable');
   const closeBtn = document.createElement('span');

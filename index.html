@@ -17,57 +17,55 @@
   <link rel="stylesheet" href="css/keyboard.css">
   <link rel="stylesheet" href="css/animations.css">
   <link rel="stylesheet" href="css/home.css">
-  <link rel="stylesheet" href="css/mealprep.css">
   <link rel="stylesheet" href="css/leadsheets.css">
   <link rel="stylesheet" href="css/chat.css">
   <link rel="stylesheet" href="css/ccmonitor.css">
-  <link rel="stylesheet" href="css/midimap.css">
+  <link rel="stylesheet" href="css/audio-analysis.css">
+  <link rel="stylesheet" href="css/take5.css">
+  <link rel="stylesheet" href="css/cosmic-comet.css">
+
 </head>
 <body>
   <div class="app" id="app">
 
-    <!-- Header -->
+    <!-- Tab Bar -->
     <header class="header">
       <nav class="header__tabs">
         <button class="tab-btn tab-btn--active" data-tab="home">Home</button>
         <button class="tab-btn" data-tab="chat">Chat</button>
         <button class="tab-btn" data-tab="midi">MIDI Router</button>
-        <button class="tab-btn" data-tab="avsync">AV Sync</button>
+
         <button class="tab-btn" data-tab="launchpad">Launchpad</button>
-        <button class="tab-btn" data-tab="mealprep">Meal Prep</button>
         <button class="tab-btn" data-tab="leadsheets">Lead Sheets</button>
         <button class="tab-btn" data-tab="ccmonitor">Helix Monitor</button>
-        <button class="tab-btn" data-tab="midimap">MIDI Map</button>
+
       </nav>
-      <div class="header__controls">
-        <!-- Home controls -->
-        <div class="tab-controls" id="home-controls" data-tab="home"></div>
-        <!-- MIDI Router controls -->
-        <div class="preset-bar tab-controls" id="midi-controls" data-tab="midi" hidden>
-          <select class="dropdown preset-bar__dropdown" id="preset-select">
-            <option value="" disabled selected>No presets</option>
-          </select>
-          <button class="btn btn--primary preset-bar__save" id="preset-save">Save</button>
-          <button class="btn btn--danger preset-bar__delete" id="preset-delete">Delete</button>
-          <div class="preset-bar__divider"></div>
-          <button class="btn btn--ghost" id="preset-export" title="Export presets">Export</button>
-          <button class="btn btn--ghost" id="preset-import" title="Import presets">Import</button>
-          <input type="file" id="preset-import-file" accept=".json" hidden>
-          <div class="preset-bar__divider"></div>
-          <button class="btn btn--ghost" id="pc-editor-toggle" title="Program changes on preset load">Actions</button>
-          <div class="preset-bar__divider"></div>
-          <button class="btn btn--ghost btn--clear" id="clear-routes" title="Remove all connections">Clear All</button>
-        </div>
-        <!-- AV Sync controls (placeholder) -->
-        <div class="tab-controls" id="avsync-controls" data-tab="avsync" hidden>
-          <button class="btn btn--ghost" id="avsync-reset">Reset</button>
-        </div>
-        <!-- Launchpad controls (placeholder) -->
-        <div class="tab-controls" id="launchpad-controls" data-tab="launchpad" hidden></div>
-        <!-- Sports Scores controls -->
-        <!-- Max controls (placeholder) -->
-      </div>
     </header>
+
+    <!-- Per-tab toolbar (sits below tab bar) -->
+    <div class="toolbar" id="toolbar">
+      <!-- Home controls -->
+      <div class="tab-controls" id="home-controls" data-tab="home"></div>
+      <!-- MIDI Router controls -->
+      <div class="preset-bar tab-controls" id="midi-controls" data-tab="midi" hidden>
+        <select class="dropdown preset-bar__dropdown" id="preset-select">
+          <option value="" disabled selected>No presets</option>
+        </select>
+        <button class="btn btn--primary preset-bar__save" id="preset-save">Save</button>
+        <button class="btn btn--danger preset-bar__delete" id="preset-delete">Delete</button>
+        <div class="preset-bar__divider"></div>
+        <button class="btn btn--ghost" id="preset-export" title="Export presets">Export</button>
+        <button class="btn btn--ghost" id="preset-import" title="Import presets">Import</button>
+        <input type="file" id="preset-import-file" accept=".json" hidden>
+        <div class="preset-bar__divider"></div>
+        <button class="btn btn--ghost" id="pc-editor-toggle" title="Program changes on preset load">Actions</button>
+        <div class="preset-bar__divider"></div>
+        <button class="btn btn--ghost btn--clear" id="clear-routes" title="Remove all connections">Clear All</button>
+      </div>
+
+      <!-- Launchpad controls -->
+      <div class="tab-controls" id="launchpad-controls" data-tab="launchpad" hidden></div>
+    </div>
 
     <!-- Tab: Home -->
     <div class="tab-content" id="tab-home">
@@ -114,37 +112,12 @@
       </section>
     </div>
 
-    <!-- Tab: AV Sync -->
-    <div class="tab-content" id="tab-avsync" hidden>
-      <div class="avsync-panel" id="avsync-panel">
-        <!-- Built dynamically by js/avsync.js -->
-      </div>
-    </div>
 
     <!-- Tab: Launchpad -->
     <div class="tab-content" id="tab-launchpad" hidden>
       <div class="launchpad-panel" id="launchpad-panel">
         <!-- Built dynamically by js/launchpad.js -->
       </div>
-    </div>
-
-    <!-- Tab: Sports Scores -->
-    <div class="tab-content" id="tab-scores" hidden>
-      <div class="scores-panel" id="scores-panel">
-        <!-- Built dynamically by js/scores.js -->
-      </div>
-    </div>
-
-    <!-- Tab: Max -->
-    <div class="tab-content" id="tab-max" hidden>
-      <div class="max-panel">
-        <div class="max-text">Max</div>
-      </div>
-    </div>
-
-    <!-- Tab: Meal Prep -->
-    <div class="tab-content" id="tab-mealprep" hidden>
-      <div class="mealprep-panel" id="mealprep-panel"></div>
     </div>
 
     <!-- Tab: Lead Sheets -->
@@ -155,11 +128,6 @@
     <!-- Tab: Helix Monitor -->
     <div class="tab-content" id="tab-ccmonitor" hidden>
       <div class="ccmonitor-panel" id="ccmonitor-panel"></div>
-    </div>
-
-    <!-- Tab: MIDI Map -->
-    <div class="tab-content" id="tab-midimap" hidden>
-      <div class="midimap-panel" id="midimap-panel"></div>
     </div>
 
     <!-- Status Bar -->

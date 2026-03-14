@@ -9,14 +9,15 @@ import * as routeEditor from './route-editor.js';
 import * as presets from './presets.js';
 import * as splits from './splits.js';
 import * as pcEditor from './pc-editor.js';
-import * as avsync from './avsync.js';
+
 import * as launchpad from './launchpad.js';
 import * as home from './home.js';
 import * as chat from './chat.js';
-import * as mealprep from './mealprep.js';
 import * as leadsheets from './leadsheets.js';
 import * as ccmonitor from './ccmonitor.js';
-import * as midimap from './midimap.js';
+import * as audioAnalysis from './audio-analysis.js';
+import * as take5 from './take5.js';
+import * as cosmicComet from './cosmic-comet.js';
 
 
 // ── DOM references ─────────────────────────────────────────────────
@@ -42,12 +43,14 @@ async function boot() {
   keyboard.init();
   routeEditor.init();
   pcEditor.init();
-  avsync.init();
+
   launchpad.init();
-  mealprep.init();
   leadsheets.init();
   ccmonitor.init();
-  midimap.init();
+  audioAnalysis.init();
+  take5.init();
+  cosmicComet.init();
+
   presets.init();
 
   // 3. Web MIDI (triggers midi:ready → modules react)
@@ -63,7 +66,7 @@ function onMidiReady(devices) {
 }
 
 function onMidiError(msg) {
-  setStatus('error', msg);
+  setStatus('error', msg, true);
 }
 
 function onDevicesChanged(devices) {
@@ -72,11 +75,51 @@ function onDevicesChanged(devices) {
 }
 
 // ── Status bar ─────────────────────────────────────────────────────
-function setStatus(state, text) {
+function setStatus(state, text, showHelp = false) {
   statusDot.className = 'status-bar__dot';
   if (state === 'connected') statusDot.classList.add('status-bar__dot--connected');
   else if (state === 'error') statusDot.classList.add('status-bar__dot--error');
   statusText.textContent = text;
+
+  // Add or remove help link
+  let helpLink = document.getElementById('midi-help-link');
+  if (showHelp && !helpLink) {
+    helpLink = document.createElement('button');
+    helpLink.id = 'midi-help-link';
+    helpLink.className = 'status-bar__help';
+    helpLink.textContent = 'Fix';
+    helpLink.addEventListener('click', toggleMidiHelp);
+    statusText.parentElement.appendChild(helpLink);
+  } else if (!showHelp && helpLink) {
+    helpLink.remove();
+    const popup = document.getElementById('midi-help-popup');
+    if (popup) popup.remove();
+  }
+}
+
+function toggleMidiHelp() {
+  let popup = document.getElementById('midi-help-popup');
+  if (popup) { popup.remove(); return; }
+
+  popup = document.createElement('div');
+  popup.id = 'midi-help-popup';
+  popup.className = 'midi-help-popup';
+  popup.innerHTML =
+    '<p>Your browser may be blocking MIDI access.</p>' +
+    '<p>Check your browser settings and make sure MIDI devices are allowed for this site, then reload the page.</p>';
+
+  const bar = document.getElementById('status-bar');
+  bar.appendChild(popup);
+
+  // Close on click outside
+  setTimeout(() => {
+    document.addEventListener('click', function closeMidiHelp(e) {
+      if (!popup.contains(e.target) && e.target.id !== 'midi-help-link') {
+        popup.remove();
+        document.removeEventListener('click', closeMidiHelp);
+      }
+    });
+  }, 0);
 }
 
 // ── Route count ────────────────────────────────────────────────────

@@ -1,0 +1,24 @@
+{
+  "name": "midi-router",
+  "version": "1.0.0",
+  "description": "Python code to route midi across home studio devices",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Max-sudo/midi-router.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Max-sudo/midi-router/issues"
+  },
+  "homepage": "https://github.com/Max-sudo/midi-router#readme",
+  "devDependencies": {
+    "puppeteer": "^24.39.1"
+  }
+}

@@ -1,4 +1,4 @@
-/* ── Home / Hero Landing Page ─────────────────────────────────────── */
+/* ── Home / Universe Hero ─────────────────────────────────────────── */
 
 .home-panel {
   flex: 1;
@@ -13,68 +13,130 @@
   position: relative;
   width: 100%;
   height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   overflow: hidden;
+  cursor: grab;
+  user-select: none;
 }
 
-/* Background image */
-.home-hero__bg {
+/* Canvas fills entire hero */
+.home-hero__canvas {
   position: absolute;
   inset: 0;
-  background-image: url('https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=1920&q=80');
-  background-size: cover;
-  background-position: center;
+  z-index: 1;
 }
 
-/* Dark overlay */
-.home-hero__overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-}
+/* ── Centered title ──────────────────────────────────────────────── */
 
-/* Vertical grid lines */
-.home-hero__grid {
-  position: absolute;
-  inset: 0;
-  z-index: 10;
-  display: grid;
-  grid-template-columns: 1fr 3fr 4fr 3fr 1fr;
-}
-
-.home-hero__grid > div {
-  border-right: 1px solid rgba(255, 255, 255, 0.12);
-}
-
-.home-hero__grid > div:last-child {
-  border-right: none;
-}
-
-/* Centered content */
 .home-hero__content {
-  position: relative;
-  z-index: 20;
-  max-width: 900px;
-  padding: 0 40px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
   text-align: center;
+  pointer-events: none;
+  padding: 40px 60px;
+  border-radius: 24px;
+  background: radial-gradient(ellipse at center, rgba(2, 1, 18, 0.7) 0%, rgba(2, 1, 18, 0.4) 50%, transparent 75%);
 }
 
 .home-hero__title {
-  font-size: clamp(2.5rem, 7vw, 6rem);
-  font-weight: 400;
+  font-size: clamp(2.5rem, 6vw, 5rem);
+  font-weight: 200;
   color: #fff;
   line-height: 1.05;
-  letter-spacing: -0.02em;
-  margin: 0 0 24px;
-  text-shadow: 0 2px 40px rgba(0, 0, 0, 0.5);
+  letter-spacing: -0.03em;
+  margin: 0 0 12px;
+  text-shadow: 0 0 60px rgba(0, 240, 255, 0.15), 0 2px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(0, 0, 0, 0.9);
 }
 
-.home-hero__subtitle {
-  font-size: clamp(1rem, 2vw, 1.25rem);
+/* ── Cycling tagline ──────────────────────────────────────────────── */
+
+.home-hero__tagline {
+  font-size: clamp(1rem, 2vw, 1.3rem);
   font-weight: 300;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.6);
   margin: 0;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.06em;
+  min-height: 1.6em;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.home-hero__tagline.tagline--in {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.home-hero__tagline.tagline--out {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+/* ── Floating cards container ────────────────────────────────────── */
+
+.home-hero__cards {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+
+/* ── Individual floating card ────────────────────────────────────── */
+
+.hero-card {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 28px 32px 20px;
+  background: rgba(18, 18, 30, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  box-shadow: 0 0 16px rgba(0, 0, 0, 0.3), 0 0 8px color-mix(in srgb, var(--card-color, #00f0ff) 8%, transparent);
+  cursor: pointer;
+  transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  will-change: transform, opacity;
+  font-family: inherit;
+  color: inherit;
+}
+
+.hero-card:hover {
+  background: rgba(25, 25, 50, 0.85);
+  border-color: var(--card-color, rgba(255, 255, 255, 0.2));
+  box-shadow: 0 0 30px color-mix(in srgb, var(--card-color, #00f0ff) 30%, transparent),
+              0 0 60px color-mix(in srgb, var(--card-color, #00f0ff) 10%, transparent),
+              0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.hero-card__icon {
+  width: 48px;
+  height: 48px;
+  color: var(--card-color, #fff);
+  filter: drop-shadow(0 0 12px color-mix(in srgb, var(--card-color, #00f0ff) 40%, transparent));
+}
+
+.hero-card__icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.hero-card__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.8);
+  white-space: nowrap;
+  letter-spacing: 0.04em;
+  transition: color 0.25s ease;
+}
+
+.hero-card:hover .hero-card__label {
+  color: #fff;
 }
