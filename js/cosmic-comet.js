@@ -61,6 +61,9 @@ let lastMidiNote = 60; // persist last pitch — doesn't reset on note-off
 let smoothedMidiNote = 60; // heavily smoothed version for visual position
 let cometInitialized = false;
 
+// Smoothed delay spacing (prevents jerky ghost repositioning)
+let smoothedDelaySpacing = 30;
+
 // Background hue (driven by reverb)
 let bgHue = 220; // default deep blue space
 let bgHueTarget = 220;
@@ -543,6 +546,12 @@ function draw(W, H, dt) {
   // 10. Comet head (the star)
   drawCometHead(W, H, rms);
 
+  // 10.5 Reverb blur — everything drawn so far gets hazed
+  applyReverbBlur(W, H);
+
+  // 10.6 Reverb nebula shell (drawn OVER the blurred scene)
+  if (ccSmoothed[SLOT_REVERB_MIX] > 0.01) drawReverbShell(W, H, rms);
+
   // 11. Emit
   emitCometParticles(rms);
   spawnRingRipple();
@@ -615,6 +624,33 @@ function drawStars(W, H) {
   }
 }
 
+/* ── Reverb blur — ethereal haze on all elements ─────────────────── */
+// When reverb is cranked, everything gets dreamy and blurred,
+// like sound fading into the background — barely making it out.
+
+function applyReverbBlur(W, H) {
+  const mix = ccSmoothed[SLOT_REVERB_MIX];
+  const decay = ccSmoothed[SLOT_REVERB_DECAY];
+  if (mix < 0.05) return;
+
+  // Blur amount: 0 at mix=0.05, up to ~6px at full mix+decay
+  const blurPx = (mix - 0.05) * 4 + decay * mix * 3;
+  if (blurPx < 0.3) return;
+
+  // Draw blurred copy of current canvas over itself at reduced opacity
+  // This creates a dreamy haze without fully destroying detail
+  const dpr = window.devicePixelRatio || 1;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0); // reset to pixel space
+  ctx.filter = `blur(${blurPx * dpr}px)`;
+  ctx.globalAlpha = 0.3 + mix * 0.35; // blend: more reverb = more of the blur layer
+  ctx.drawImage(canvas, 0, 0);
+  ctx.filter = 'none';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // restore
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
 /* ── Reverb space atmosphere ──────────────────────────────────────── */
 // Reverb = the space you're in. It paints the entire background atmosphere,
 // not just a haze near the comet. Mix = intensity, Decay = how expansive.
@@ -622,46 +658,113 @@ function drawStars(W, H) {
 function drawReverbHaze(W, H) {
   const mix = ccSmoothed[SLOT_REVERB_MIX];
   const decay = ccSmoothed[SLOT_REVERB_DECAY];
-  const alpha = mix * 0.25; // strong — reverb should be unmistakable
+  const alpha = mix * 0.2;
 
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
 
-  // Full-screen atmospheric wash — like being inside a reverberant space
+  // Base atmospheric wash
   const edgeGrad = ctx.createRadialGradient(W/2, H/2, Math.min(W, H) * 0.05, W/2, H/2, Math.max(W, H) * 0.9);
-  edgeGrad.addColorStop(0, `hsla(${bgHue + 40}, ${40 + decay * 40}%, 30%, ${alpha * 0.4})`);
-  edgeGrad.addColorStop(0.4, `hsla(${bgHue + 50}, ${35 + decay * 35}%, 25%, ${alpha * 0.7})`);
-  edgeGrad.addColorStop(0.8, `hsla(${bgHue + 60}, ${30 + decay * 30}%, 18%, ${alpha * 0.9})`);
-  edgeGrad.addColorStop(1, `hsla(${bgHue + 60}, ${25 + decay * 25}%, 12%, ${alpha})`);
+  edgeGrad.addColorStop(0, `hsla(${bgHue + 40}, ${40 + decay * 40}%, 30%, ${alpha * 0.3})`);
+  edgeGrad.addColorStop(0.5, `hsla(${bgHue + 50}, ${35 + decay * 30}%, 22%, ${alpha * 0.5})`);
+  edgeGrad.addColorStop(1, `hsla(${bgHue + 60}, ${25 + decay * 25}%, 12%, ${alpha * 0.7})`);
   ctx.fillStyle = edgeGrad;
   ctx.fillRect(0, 0, W, H);
 
-  // Corner fog — decay makes the space feel more enclosed/expansive
-  const fogR = Math.max(W, H) * (0.4 + decay * 0.6);
-  const corners = [[0, 0], [W, 0], [0, H], [W, H]];
-  for (const [cx, cy] of corners) {
-    const fg = ctx.createRadialGradient(cx, cy, 0, cx, cy, fogR);
-    fg.addColorStop(0, `hsla(${bgHue + 55}, ${45 + decay * 35}%, 35%, ${alpha * 0.7})`);
-    fg.addColorStop(0.4, `hsla(${bgHue + 50}, ${35 + decay * 25}%, 25%, ${alpha * 0.3})`);
-    fg.addColorStop(0.8, `hsla(${bgHue + 45}, ${25 + decay * 20}%, 18%, ${alpha * 0.08})`);
-    fg.addColorStop(1, 'hsla(270, 20%, 10%, 0)');
-    ctx.fillStyle = fg;
-    ctx.fillRect(cx - fogR, cy - fogR, fogR * 2, fogR * 2);
+  // Drifting fog blobs — organic, cloudy texture that moves slowly
+  // These give the nebulous, textured look from the reference
+  const blobCount = 8 + Math.floor(decay * 6);
+  for (let i = 0; i < blobCount; i++) {
+    const seed = i * 3.14159 + 1.41;
+    // Blobs drift slowly across the screen
+    const bx = ((Math.sin(seed * 1.3 + time * 0.04) * 0.5 + 0.5) * 1.4 - 0.2) * W;
+    const by = ((Math.cos(seed * 1.7 + time * 0.03) * 0.5 + 0.5) * 1.4 - 0.2) * H;
+    const br = 80 + decay * 150 + Math.sin(time * 0.2 + seed * 2.3) * 40;
+    const blobHue = bgHue + 30 + Math.sin(seed * 2.7) * 30;
+    const blobAlpha = alpha * (0.12 + Math.sin(time * 0.15 + seed * 1.9) * 0.05);
+
+    // Elliptical blob for more organic shape
+    ctx.save();
+    ctx.translate(bx, by);
+    ctx.rotate(seed + time * 0.02);
+    ctx.scale(1, 0.6 + Math.sin(seed * 3.1) * 0.3);
+    const bg = ctx.createRadialGradient(0, 0, 0, 0, 0, br);
+    bg.addColorStop(0, `hsla(${blobHue}, ${35 + decay * 25}%, 40%, ${blobAlpha})`);
+    bg.addColorStop(0.4, `hsla(${blobHue + 10}, ${30 + decay * 20}%, 30%, ${blobAlpha * 0.5})`);
+    bg.addColorStop(1, `hsla(${blobHue + 20}, 25%, 20%, 0)`);
+    ctx.fillStyle = bg;
+    ctx.fillRect(-br, -br, br * 2, br * 2);
+    ctx.restore();
   }
 
-  // Top/bottom edge glow for immersion
-  const edgeAlpha = alpha * 0.5;
-  const topGrad = ctx.createLinearGradient(0, 0, 0, H * 0.3);
-  topGrad.addColorStop(0, `hsla(${bgHue + 50}, ${40 + decay * 30}%, 25%, ${edgeAlpha})`);
+  // Edge vignette
+  const edgeAlpha = alpha * 0.4;
+  const topGrad = ctx.createLinearGradient(0, 0, 0, H * 0.25);
+  topGrad.addColorStop(0, `hsla(${bgHue + 50}, ${35 + decay * 25}%, 25%, ${edgeAlpha})`);
   topGrad.addColorStop(1, 'hsla(270, 20%, 10%, 0)');
   ctx.fillStyle = topGrad;
-  ctx.fillRect(0, 0, W, H * 0.3);
-
-  const botGrad = ctx.createLinearGradient(0, H * 0.7, 0, H);
+  ctx.fillRect(0, 0, W, H * 0.25);
+  const botGrad = ctx.createLinearGradient(0, H * 0.75, 0, H);
   botGrad.addColorStop(0, 'hsla(270, 20%, 10%, 0)');
-  botGrad.addColorStop(1, `hsla(${bgHue + 50}, ${40 + decay * 30}%, 25%, ${edgeAlpha})`);
+  botGrad.addColorStop(1, `hsla(${bgHue + 50}, ${35 + decay * 25}%, 25%, ${edgeAlpha})`);
   ctx.fillStyle = botGrad;
-  ctx.fillRect(0, H * 0.7, W, H * 0.3);
+  ctx.fillRect(0, H * 0.75, W, H * 0.25);
+
+  ctx.restore();
+}
+
+/* ── Reverb nebula shell — translucent cosmic membrane ────────────── */
+// Inspired by supernova remnant shells: large wispy, flowing curves
+// wrapping around the comet in purple/violet/pink tones.
+
+function drawReverbShell(W, H, rms) {
+  const mix = ccSmoothed[SLOT_REVERB_MIX];
+  const decay = ccSmoothed[SLOT_REVERB_DECAY];
+  if (mix < 0.02) return;
+
+  const cx = cometX, cy = cometY;
+  const baseR = 70 + mix * 120 + decay * 100;
+  const alpha = mix * 0.35;
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+
+  // === 1. Diffuse nebulous clouds orbiting the comet ===
+  // Soft, wide blobs instead of sharp lines — like gaseous remnants
+  const cloudCount = 7 + Math.floor(decay * 5);
+  for (let i = 0; i < cloudCount; i++) {
+    const seed = i * 2.618 + 0.3;
+    const angle = (i / cloudCount) * TAU + time * 0.08 + Math.sin(time * 0.2 + seed) * 0.3;
+    const dist = baseR * (0.75 + Math.sin(time * 0.3 + seed * 1.7) * 0.2);
+    const cloudX = cx + Math.cos(angle) * dist;
+    const cloudY = cy + Math.sin(angle) * dist;
+    const cloudR = 25 + mix * 40 + decay * 30 + Math.sin(time * 0.5 + seed * 2.3) * 15;
+    const cloudHue = 265 + Math.sin(seed * 1.3) * 35;
+    const cloudAlpha = alpha * (0.12 + Math.sin(time * 0.4 + seed * 1.9) * 0.05);
+
+    // Elliptical cloud for organic shape
+    ctx.save();
+    ctx.translate(cloudX, cloudY);
+    ctx.rotate(angle + time * 0.05);
+    ctx.scale(1.4 + Math.sin(seed * 2.1) * 0.4, 0.7 + Math.cos(seed * 1.7) * 0.2);
+    const cg = ctx.createRadialGradient(0, 0, 0, 0, 0, cloudR);
+    cg.addColorStop(0, `hsla(${cloudHue}, 50%, 70%, ${cloudAlpha})`);
+    cg.addColorStop(0.3, `hsla(${cloudHue + 10}, 45%, 58%, ${cloudAlpha * 0.6})`);
+    cg.addColorStop(0.7, `hsla(${cloudHue + 20}, 35%, 45%, ${cloudAlpha * 0.15})`);
+    cg.addColorStop(1, `hsla(${cloudHue + 25}, 30%, 35%, 0)`);
+    ctx.fillStyle = cg;
+    ctx.fillRect(-cloudR, -cloudR, cloudR * 2, cloudR * 2);
+    ctx.restore();
+  }
+
+  // === 2. Inner warm glow ===
+  const innerR = baseR * 0.6;
+  const ig = ctx.createRadialGradient(cx, cy, baseR * 0.1, cx, cy, innerR);
+  ig.addColorStop(0, `hsla(310, 40%, 55%, ${alpha * 0.1})`);
+  ig.addColorStop(0.5, `hsla(285, 35%, 45%, ${alpha * 0.05})`);
+  ig.addColorStop(1, 'hsla(270, 30%, 35%, 0)');
+  ctx.fillStyle = ig;
+  ctx.beginPath(); ctx.arc(cx, cy, innerR, 0, TAU); ctx.fill();
 
   ctx.restore();
 }
@@ -675,7 +778,9 @@ function drawDelayGhosts(W, H, rms) {
 
   // Feedback controls how many echoes (1-8), time controls spacing
   const ghostCount = Math.floor(feedback * 7) + 1;
-  const spacing = Math.max(15, Math.floor(delayTime * 250));
+  const targetSpacing = Math.max(15, Math.floor(delayTime * 250));
+  smoothedDelaySpacing += (targetSpacing - smoothedDelaySpacing) * 0.04; // smooth transitions
+  const spacing = Math.round(smoothedDelaySpacing);
   const len = trail.length;
 
   // Draw furthest ghosts first (back to front)
@@ -691,11 +796,12 @@ function drawDelayGhosts(W, H, rms) {
 
     // Each successive ghost is fainter (exponential feedback decay)
     const falloff = Math.pow(feedback, g - 1);
-    const alpha = mix * falloff * 0.85;
+    // At full mix + feedback, ghosts are identical to the lead comet
+    const alpha = mix * falloff;
     if (alpha <= 0.01) continue;
 
-    // Scale: first ghost is 90% of main comet, diminishing with feedback
-    const ghostScale = 0.7 + falloff * 0.25;
+    // Scale: identical to lead comet at full feedback
+    const ghostScale = 0.85 + falloff * 0.15;
 
     // Draw the FULL comet head with all effects (drive, chorus, plasma, etc.)
     // using the shared drawCometHeadAt function — true delayed copies
@@ -721,18 +827,24 @@ function drawCometTail(W, H, rms) {
 
   for (let i = 1; i < len; i++) {
     const t = trail[i];
-    const tx = trailScreenX(t);
+    let tx = trailScreenX(t);
+    let ty = t.y;
     if (tx < -100 || tx > W + 100) continue;
     const progress = i / len;
     const alpha = progress * progress * 0.08 * (1 + rms * 2);
     const glowR = 25 + progress * 50 + rms * 35;
     if (alpha < 0.003) continue;
 
-    const g = ctx.createRadialGradient(tx, t.y, 0, tx, t.y, glowR);
+    // Ring mod warps glow positions too
+    const rmW = ringModWarp(tx, ty, i * 0.3);
+    tx += rmW.dx * 0.4;
+    ty += rmW.dy * 0.4;
+
+    const g = ctx.createRadialGradient(tx, ty, 0, tx, ty, glowR);
     g.addColorStop(0, `hsla(${h}, ${s}%, ${l + 10}%, ${alpha})`);
     g.addColorStop(1, `hsla(${h}, ${s}%, ${l}%, 0)`);
     ctx.fillStyle = g;
-    ctx.fillRect(tx - glowR, t.y - glowR, glowR * 2, glowR * 2);
+    ctx.fillRect(tx - glowR, ty - glowR, glowR * 2, glowR * 2);
   }
 
   ctx.restore();
@@ -762,6 +874,11 @@ function drawCometTail(W, H, rms) {
         y += noise * drive * 10;
       }
 
+      // Ring mod mangles the trail path
+      const rmW = ringModWarp(x, y, i * 0.7);
+      x += rmW.dx * 0.6;
+      y += rmW.dy * 0.6;
+
       if (!started) { ctx.moveTo(x, y); started = true; }
       else ctx.lineTo(x, y);
     }
@@ -780,7 +897,11 @@ function drawCometTail(W, H, rms) {
 function drawEmbers(W, H) {
   for (let i = 0; i < MAX_EMBERS; i++) {
     if (eLife[i] <= 0) continue;
-    const x = eX[i], y = eY[i];
+    let x = eX[i], y = eY[i];
+    // Ring mod warps ember positions
+    const rmW = ringModWarp(x, y, i * 0.17);
+    x += rmW.dx * 0.4;
+    y += rmW.dy * 0.4;
     if (x < -10 || x > W + 10 || y < -10 || y > H + 10) continue;
 
     const life = eLife[i];
@@ -800,7 +921,11 @@ function drawParticles(W, H) {
   for (let i = 0; i < MAX_PARTICLES; i++) {
     if (pLife[i] <= 0) continue;
 
-    const x = pX[i], y = pY[i];
+    let x = pX[i], y = pY[i];
+    // Ring mod warps particle positions
+    const rmW = ringModWarp(x, y, i * 0.13);
+    x += rmW.dx * 0.5;
+    y += rmW.dy * 0.5;
     if (x < -30 || x > W + 30 || y < -30 || y > H + 30) continue;
 
     const life = pLife[i];
@@ -824,134 +949,46 @@ function drawParticles(W, H) {
   }
 }
 
-/* ── Ring mod — chaotic, glitchy, metallic visuals ────────────────── */
-// Ring mod creates harsh inharmonic tones. The visual should feel unstable,
-// electric, fractured — like reality is glitching around the comet.
+/* ── Ring mod — mangles the comet and trail directly ──────────────── */
+// Ring mod distortion is applied INSIDE the comet head and trail rendering,
+// not as a separate overlay. These helper functions compute the distortion.
 
-function drawRingRipples() {
+// Returns a position offset for ring mod warping at a given point
+function ringModWarp(x, y, seedOffset) {
   const ringMix = ccSmoothed[SLOT_RING_MIX];
   const ringFreq = ccSmoothed[SLOT_RING_FREQ];
-  if (ringMix < 0.02) return;
+  if (ringMix < 0.02) return { dx: 0, dy: 0 };
 
-  ctx.save();
-  ctx.globalCompositeOperation = 'screen';
+  const speed = 4 + ringFreq * 25;
+  // Exponential scaling — gentle at low values, absolutely unhinged at extremes
+  const intensity = ringMix * ringMix; // quadratic
+  const amount = 20 + intensity * 60; // 20-80px displacement
+  // At extreme freq (>0.8), add chaotic high-frequency harmonics
+  const extreme = Math.max(0, ringFreq - 0.6) * 2.5; // 0 below 0.6, ramps to 2.5 at 1.0
+  const spatialFreq = 0.05 + extreme * 0.15; // spatial warp gets tighter at extremes
 
-  const cx = cometX, cy = cometY;
-  const intensity = ringMix;
-  const freq = ringFreq;
-  const speed = 4 + freq * 20; // frequency drives visual speed
+  // Base warp — two inharmonic sine layers
+  let dx = Math.sin(x * spatialFreq + time * speed + seedOffset) * amount
+         + Math.sin(y * spatialFreq * 1.6 + time * speed * 1.3 + seedOffset * 2.1) * amount * 0.5;
+  let dy = Math.cos(y * spatialFreq + time * speed * 0.9 + seedOffset * 1.7) * amount
+         + Math.cos(x * spatialFreq * 1.4 + time * speed * 1.1 + seedOffset * 3.3) * amount * 0.5;
 
-  // === 1. Expanding interference rings (fast, many) ===
-  for (const r of ringPool) {
-    // Distorted ring — not a perfect circle, warped by freq
-    ctx.beginPath();
-    const steps = 60;
-    for (let i = 0; i <= steps; i++) {
-      const a = (i / steps) * TAU;
-      const warp = Math.sin(a * (3 + Math.floor(freq * 8)) + time * speed) * r.radius * 0.15 * intensity;
-      const px = r.x + Math.cos(a) * (r.radius + warp);
-      const py = r.y + Math.sin(a) * (r.radius + warp);
-      if (i === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
-    }
-    ctx.closePath();
-    ctx.strokeStyle = `rgba(0, 240, 255, ${r.alpha})`;
-    ctx.lineWidth = 1.5 + intensity * 3;
-    ctx.stroke();
+  // Extreme range: add harsh high-frequency interference patterns
+  if (extreme > 0.1) {
+    const hfAmount = extreme * amount * 0.8;
+    const hfSpeed = speed * 2.5;
+    dx += Math.sin(x * 0.2 + time * hfSpeed + seedOffset * 5.7) * hfAmount;
+    dx += Math.cos(y * 0.15 + time * hfSpeed * 0.7 + seedOffset * 7.3) * hfAmount * 0.4;
+    dy += Math.cos(y * 0.18 + time * hfSpeed * 1.2 + seedOffset * 4.1) * hfAmount;
+    dy += Math.sin(x * 0.22 + time * hfSpeed * 0.6 + seedOffset * 6.9) * hfAmount * 0.4;
   }
 
-  // === 2. Electric arcs — jagged lightning bolts radiating outward ===
-  const arcCount = 3 + Math.floor(intensity * 8);
-  for (let i = 0; i < arcCount; i++) {
-    const angle = (i / arcCount) * TAU + time * speed * 0.3 + Math.sin(time * 3.7 + i) * 0.5;
-    const len = 40 + intensity * 120 + Math.sin(time * speed + i * 2.3) * 30;
-    const segments = 6 + Math.floor(intensity * 6);
-    const arcAlpha = intensity * (0.3 + Math.random() * 0.4);
-
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    let px = cx, py = cy;
-    for (let s = 1; s <= segments; s++) {
-      const t2 = s / segments;
-      const baseX = cx + Math.cos(angle) * len * t2;
-      const baseY = cy + Math.sin(angle) * len * t2;
-      // Jagged perpendicular displacement
-      const jitter = (Math.random() - 0.5) * 25 * intensity;
-      const perpX = -Math.sin(angle);
-      const perpY = Math.cos(angle);
-      px = baseX + perpX * jitter;
-      py = baseY + perpY * jitter;
-      ctx.lineTo(px, py);
-    }
-    ctx.strokeStyle = `hsla(185, 95%, ${70 + Math.random() * 25}%, ${arcAlpha})`;
-    ctx.lineWidth = 0.8 + intensity * 2;
-    ctx.shadowColor = `hsla(185, 90%, 60%, ${arcAlpha * 0.5})`;
-    ctx.shadowBlur = 6 + intensity * 8;
-    ctx.stroke();
-  }
-  ctx.shadowBlur = 0;
-
-  // === 3. Glitch rectangles — screen-tear artifacts ===
-  if (intensity > 0.3) {
-    const glitchCount = Math.floor((intensity - 0.3) * 15);
-    for (let i = 0; i < glitchCount; i++) {
-      const gw = 20 + Math.random() * 80 * intensity;
-      const gh = 1 + Math.random() * 4;
-      const gx = cx - 60 + Math.sin(time * speed * 2 + i * 5.7) * 100 * intensity;
-      const gy = cy - 80 + Math.random() * 160;
-      const glitchAlpha = (intensity - 0.3) * (0.2 + Math.random() * 0.3);
-      ctx.fillStyle = `hsla(${180 + Math.random() * 30}, 90%, ${60 + Math.random() * 30}%, ${glitchAlpha})`;
-      ctx.fillRect(gx, gy, gw, gh);
-    }
-  }
-
-  // === 4. Frequency-modulated halo — pulsing at ring mod rate ===
-  const haloR = 50 + intensity * 80;
-  const haloPulse = Math.sin(time * speed) * 0.5 + 0.5;
-  const haloAlpha = intensity * 0.2 * haloPulse;
-  const hg = ctx.createRadialGradient(cx, cy, haloR * 0.3, cx, cy, haloR);
-  hg.addColorStop(0, `hsla(185, 90%, 60%, ${haloAlpha})`);
-  hg.addColorStop(0.5, `hsla(195, 80%, 50%, ${haloAlpha * 0.4})`);
-  hg.addColorStop(1, 'hsla(200, 70%, 40%, 0)');
-  ctx.fillStyle = hg;
-  ctx.beginPath();
-  ctx.arc(cx, cy, haloR, 0, TAU);
-  ctx.fill();
-
-  // === 5. Fracture lines — cracks in space radiating from comet ===
-  if (intensity > 0.5) {
-    const crackCount = Math.floor((intensity - 0.5) * 12);
-    for (let i = 0; i < crackCount; i++) {
-      const angle = (i / crackCount) * TAU + time * 0.5;
-      const crackLen = 60 + intensity * 150;
-      const crackAlpha = (intensity - 0.5) * 0.5 * (0.5 + Math.sin(time * 12 + i * 3) * 0.5);
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      let cpx = cx, cpy = cy;
-      for (let s = 0; s < 5; s++) {
-        const t2 = (s + 1) / 5;
-        cpx = cx + Math.cos(angle) * crackLen * t2 + (Math.random() - 0.5) * 15;
-        cpy = cy + Math.sin(angle) * crackLen * t2 + (Math.random() - 0.5) * 15;
-        ctx.lineTo(cpx, cpy);
-      }
-      ctx.strokeStyle = `hsla(180, 100%, 90%, ${crackAlpha})`;
-      ctx.lineWidth = 0.5 + Math.random() * 1.5;
-      ctx.stroke();
-    }
-  }
-
-  ctx.restore();
+  return { dx: dx * ringMix, dy: dy * ringMix };
 }
 
-function spawnRingRipple() {
-  const ringMix = ccSmoothed[SLOT_RING_MIX];
-  if (ringMix < 0.02) return;
-  const ringFreq = ccSmoothed[SLOT_RING_FREQ];
-  const interval = Math.max(2, Math.floor(20 - ringFreq * 18));
-  if (Math.floor(time * 60) % interval === 0 && ringPool.length < MAX_RINGS) {
-    ringPool.push({ x: cometX, y: cometY, radius: 8, alpha: ringMix * 0.5 });
-  }
-}
+// No-op — ring pool is no longer used for standalone visuals
+function drawRingRipples() {}
+function spawnRingRipple() {}
 
 /* ── EQ spectral bands ───────────────────────────────────────────── */
 // Low = warm amber aurora below the comet
@@ -1081,8 +1118,33 @@ function drawCometHeadAt(W, H, rms, hx, hy, scale, masterAlpha) {
   const chorusRate = ccSmoothed[SLOT_CHORUS_RATE];
   const { h, s, l } = blendedColor;
 
-  const brightness = (0.7 + driveLevel * 0.25 + rms * 0.35) * masterAlpha;
-  const R = (20 + rms * 32) * scale; // core radius
+  // For delay ghosts (masterAlpha < 1), render to an offscreen canvas at full
+  // brightness, then stamp it onto the main canvas at reduced opacity.
+  // This ensures ghosts are true faded copies with all detail intact.
+  const brightness = 0.7 + driveLevel * 0.25 + rms * 0.35;
+  const R = (20 + rms * 32) * scale;
+
+  const useOffscreen = masterAlpha < 0.99;
+  let mainCtx = ctx;
+  let offCanvas = null;
+  if (useOffscreen) {
+    const margin = R * 14; // enough space for all glow layers
+    const size = Math.ceil(margin * 2);
+    offCanvas = document.createElement('canvas');
+    offCanvas.width = size;
+    offCanvas.height = size;
+    ctx = offCanvas.getContext('2d');
+    // Translate so hx,hy maps to center of offscreen canvas
+    ctx.translate(margin - hx, margin - hy);
+  }
+
+  // ── Ring mod position mangling ──
+  const ringMix = ccSmoothed[SLOT_RING_MIX];
+  const ringFreq = ccSmoothed[SLOT_RING_FREQ];
+  const rmWarp = ringModWarp(hx, hy, 0);
+  // At high ring mod, the comet head itself jitters
+  hx += rmWarp.dx * 0.4;
+  hy += rmWarp.dy * 0.4;
 
   // ── 1. OUTER CORONA GLOW — deep amber atmospheric haze ──
   ctx.save();
@@ -1142,39 +1204,69 @@ function drawCometHeadAt(W, H, rms, hx, hy, scale, masterAlpha) {
   }
   ctx.restore();
 
-  // ── 3. CHORUS — orbital shimmer (effect layer) ──
+  // ── 3. CHORUS — multiple detuned copies of the fireball ──
+  // Chorus = layered copies slightly offset, like double/triple vision.
+  // Rate controls how much the copies drift. Mix controls how visible they are.
   if (chorusMix > 0.02) {
     ctx.save();
     ctx.globalCompositeOperation = 'screen';
-    const chorusSpeed = 3 + chorusRate * 12;
-    const orbitR = R * 2.2 + chorusMix * 20;
-    for (let i = 0; i < 6; i++) {
-      const dir = i < 3 ? 1 : -1;
-      const angle = dir * time * chorusSpeed * 0.4 + (i % 3) * TAU / 3;
-      const ox = hx + Math.cos(angle) * orbitR;
-      const oy = hy + Math.sin(angle) * orbitR * 0.6;
-      const streakLen = 10 + chorusMix * 18;
-      const sx = ox - Math.cos(angle) * streakLen;
-      const sy = oy - Math.sin(angle) * streakLen * 0.6;
-      const sg = ctx.createLinearGradient(sx, sy, ox, oy);
-      sg.addColorStop(0, 'hsla(210, 70%, 60%, 0)');
-      sg.addColorStop(0.5, `hsla(215, 80%, 70%, ${chorusMix * 0.35 * masterAlpha})`);
-      sg.addColorStop(1, `hsla(220, 90%, 85%, ${chorusMix * 0.5 * masterAlpha})`);
-      ctx.strokeStyle = sg;
-      ctx.lineWidth = 1.5 + chorusMix * 2;
-      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ox, oy); ctx.stroke();
-      ctx.fillStyle = `hsla(210, 80%, 90%, ${chorusMix * 0.4 * masterAlpha})`;
-      ctx.beginPath(); ctx.arc(ox, oy, 2 + chorusMix * 2, 0, TAU); ctx.fill();
+    const copies = 3;
+    const driftAmount = 5 + chorusMix * 15 + chorusRate * 30;
+    const driftSpeed = 0.3 + chorusRate * 4;
+    const cA = chorusMix * 0.8; // strong — chorus should be very visible
+
+    for (let c = 0; c < copies; c++) {
+      const phase = (c / copies) * TAU;
+      const dx = Math.sin(time * driftSpeed + phase) * driftAmount;
+      const dy = Math.cos(time * driftSpeed * 0.7 + phase) * driftAmount * 0.6;
+      const copyX = hx + dx;
+      const copyY = hy + dy;
+      const copyR = R * (0.95 + Math.sin(time * driftSpeed * 1.3 + phase) * 0.05);
+
+      // Wide ambient glow matching the main comet's corona texture
+      if (cometCoreTexture) {
+        ctx.save();
+        ctx.globalAlpha = cA * 0.3;
+        const glowSz = copyR * 18;
+        ctx.drawImage(cometCoreTexture, copyX - glowSz/2, copyY - glowSz/2, glowSz, glowSz);
+        ctx.restore();
+      }
+
+      // Colored glow halo
+      const og = ctx.createRadialGradient(copyX, copyY, copyR * 0.2, copyX, copyY, copyR * 3);
+      og.addColorStop(0, `hsla(40, 95%, 70%, ${cA * 0.35})`);
+      og.addColorStop(0.3, `hsla(30, 90%, 55%, ${cA * 0.15})`);
+      og.addColorStop(0.7, `hsla(18, 80%, 40%, ${cA * 0.04})`);
+      og.addColorStop(1, 'hsla(10, 70%, 30%, 0)');
+      ctx.fillStyle = og;
+      ctx.beginPath(); ctx.arc(copyX, copyY, copyR * 3, 0, TAU); ctx.fill();
+
+      // Copy sphere body — full fireball gradient
+      const cg = ctx.createRadialGradient(
+        copyX - copyR * 0.15, copyY - copyR * 0.15, 0,
+        copyX, copyY, copyR
+      );
+      cg.addColorStop(0, `hsla(50, 100%, 95%, ${cA * 0.8})`);
+      cg.addColorStop(0.15, `hsla(45, 100%, 82%, ${cA * 0.7})`);
+      cg.addColorStop(0.35, `hsla(35, 95%, 65%, ${cA * 0.5})`);
+      cg.addColorStop(0.6, `hsla(22, 90%, 48%, ${cA * 0.3})`);
+      cg.addColorStop(0.85, `hsla(10, 85%, 32%, ${cA * 0.12})`);
+      cg.addColorStop(1, 'hsla(0, 80%, 20%, 0)');
+      ctx.fillStyle = cg;
+      ctx.beginPath(); ctx.arc(copyX, copyY, copyR, 0, TAU); ctx.fill();
+
+      // Specular highlight on copy
+      const specR = copyR * 0.3;
+      const sg = ctx.createRadialGradient(
+        copyX - copyR * 0.2, copyY - copyR * 0.2, 0,
+        copyX - copyR * 0.2, copyY - copyR * 0.2, specR
+      );
+      sg.addColorStop(0, `rgba(255, 255, 240, ${cA * 0.4})`);
+      sg.addColorStop(1, 'rgba(255, 245, 200, 0)');
+      ctx.fillStyle = sg;
+      ctx.beginPath(); ctx.arc(copyX - copyR * 0.2, copyY - copyR * 0.2, specR, 0, TAU); ctx.fill();
     }
-    for (let ring = 0; ring < 3; ring++) {
-      const phase = ring * TAU / 3;
-      const r = orbitR + Math.sin(time * chorusSpeed + phase) * chorusMix * 12;
-      const ra = chorusMix * 0.2 * (1 - ring * 0.2) * masterAlpha;
-      ctx.beginPath(); ctx.arc(hx, hy, Math.max(1, r), 0, TAU);
-      ctx.strokeStyle = `hsla(215, 70%, 75%, ${ra})`;
-      ctx.lineWidth = 1 + chorusMix * 2;
-      ctx.stroke();
-    }
+
     ctx.restore();
   }
 
@@ -1187,8 +1279,12 @@ function drawCometHeadAt(W, H, rms, hx, hy, scale, masterAlpha) {
     const seed = i * 3.14159 + 1.732;
     const cellAngle = (i / cellCount) * TAU + Math.sin(time * 0.9 + seed) * 0.4;
     const cellDist = R * (0.15 + Math.sin(time * 1.1 + seed * 2.3) * 0.15);
-    const cx2 = hx + Math.cos(cellAngle) * cellDist;
-    const cy2 = hy + Math.sin(cellAngle) * cellDist;
+    let cx2 = hx + Math.cos(cellAngle) * cellDist;
+    let cy2 = hy + Math.sin(cellAngle) * cellDist;
+    // Ring mod warps granulation cells
+    const cellWarp = ringModWarp(cx2, cy2, seed * 0.5);
+    cx2 += cellWarp.dx * 0.3;
+    cy2 += cellWarp.dy * 0.3;
     const cellR = R * (0.35 + Math.sin(time * 1.7 + seed * 1.5) * 0.1);
     const cellBright = brightness * (0.15 + Math.sin(time * 2.3 + seed * 3.1) * 0.08);
 
@@ -1213,6 +1309,37 @@ function drawCometHeadAt(W, H, rms, hx, hy, scale, masterAlpha) {
   coreGrad.addColorStop(1, `hsla(0, 80%, 18%, 0)`);                        // fade out
   ctx.fillStyle = coreGrad;
   ctx.beginPath(); ctx.arc(hx, hy, R, 0, TAU); ctx.fill();
+
+  // ── 5b. RING MOD FRAGMENTATION — split/mangled copies of the sphere ──
+  if (ringMix > 0.03) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    const extreme = Math.max(0, ringFreq - 0.6) * 2.5;
+    // More fragments at extreme range — comet shatters apart
+    const fragCount = 2 + Math.floor(ringMix * 4) + Math.floor(extreme * 6);
+    const rmSpeed = 4 + ringFreq * 25;
+    for (let f = 0; f < fragCount; f++) {
+      const seed = f * 2.71 + 0.5;
+      const fw = ringModWarp(hx + f * 50, hy + f * 30, seed);
+      // At extreme, fragments fly further out
+      const spread = 0.6 + f * 0.15 + extreme * 0.5;
+      const fx = hx + fw.dx * spread;
+      const fy = hy + fw.dy * spread;
+      // Fragment sizes vary more wildly at extreme
+      const sizeVar = extreme > 0.1 ? Math.sin(time * rmSpeed * 0.5 + seed * 4.7) * 0.35 : 0;
+      const fR = R * (0.4 + sizeVar + Math.sin(time * rmSpeed * 0.3 + seed * 2.1) * 0.15);
+      const fragAlpha = ringMix * (0.2 + extreme * 0.15) * (1 - f / (fragCount + 2));
+
+      const fg = ctx.createRadialGradient(fx, fy, 0, fx, fy, fR);
+      fg.addColorStop(0, `hsla(45, 100%, 85%, ${fragAlpha})`);
+      fg.addColorStop(0.3, `hsla(30, 95%, 60%, ${fragAlpha * 0.6})`);
+      fg.addColorStop(0.7, `hsla(15, 85%, 40%, ${fragAlpha * 0.2})`);
+      fg.addColorStop(1, 'hsla(5, 80%, 25%, 0)');
+      ctx.fillStyle = fg;
+      ctx.beginPath(); ctx.arc(fx, fy, fR, 0, TAU); ctx.fill();
+    }
+    ctx.restore();
+  }
 
   // ── 6. SURFACE DETAIL — dark convection boundaries (solar granulation) ──
   ctx.save();
@@ -1293,6 +1420,16 @@ function drawCometHeadAt(W, H, rms, hx, hy, scale, masterAlpha) {
   ctx.lineWidth = 1.2;
   ctx.beginPath(); ctx.moveTo(hx - flareLen, hy); ctx.lineTo(hx + flareLen, hy); ctx.stroke();
   ctx.restore();
+
+  // Stamp offscreen canvas back at masterAlpha
+  if (useOffscreen && offCanvas) {
+    ctx = mainCtx;
+    const margin = R * 14;
+    ctx.save();
+    ctx.globalAlpha = masterAlpha;
+    ctx.drawImage(offCanvas, hx - margin, hy - margin);
+    ctx.restore();
+  }
 }
 
 // Convenience wrapper for the main comet
