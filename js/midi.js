@@ -26,7 +26,7 @@ export async function init() {
 }
 
 // ── Device filtering ───────────────────────────────────────────────
-const HIDDEN_KEYWORDS = ['hui', 'din'];
+const HIDDEN_KEYWORDS = ['hui', 'din', 'daw'];
 
 function isHidden(name) {
   const lower = (name || '').toLowerCase();

@@ -137,7 +137,7 @@
 /* Patch Bay */
 .patchbay {
   display: grid;
-  grid-template-columns: minmax(160px, 1fr) 2fr minmax(160px, 1fr);
+  grid-template-columns: 1fr minmax(150px, 330px) 1fr;
   overflow: hidden;
   position: relative;
 }
@@ -276,5 +276,5 @@
 }
 
 @media (max-width: 1000px) {
-  .patchbay { grid-template-columns: minmax(140px, 1fr) 1.5fr minmax(140px, 1fr); }
+  .patchbay { grid-template-columns: 1fr minmax(120px, 270px) 1fr; }
 }

@@ -983,7 +983,11 @@ function ringModWarp(x, y, seedOffset) {
     dy += Math.sin(x * 0.22 + time * hfSpeed * 0.6 + seedOffset * 6.9) * hfAmount * 0.4;
   }
 
-  return { dx: dx * ringMix, dy: dy * ringMix };
+  // Clamp displacement to prevent screen blowout — enough to look chaotic, not enough to stack everything
+  const maxDisp = 120;
+  const fdx = Math.max(-maxDisp, Math.min(maxDisp, dx * ringMix));
+  const fdy = Math.max(-maxDisp, Math.min(maxDisp, dy * ringMix));
+  return { dx: fdx, dy: fdy };
 }
 
 // No-op — ring pool is no longer used for standalone visuals
@@ -1315,26 +1319,28 @@ function drawCometHeadAt(W, H, rms, hx, hy, scale, masterAlpha) {
     ctx.save();
     ctx.globalCompositeOperation = 'screen';
     const extreme = Math.max(0, ringFreq - 0.6) * 2.5;
-    // More fragments at extreme range — comet shatters apart
-    const fragCount = 2 + Math.floor(ringMix * 4) + Math.floor(extreme * 6);
+    // Cap fragment count to prevent brightness blowout
+    const fragCount = Math.min(8, 2 + Math.floor(ringMix * 3) + Math.floor(extreme * 3));
     const rmSpeed = 4 + ringFreq * 25;
+    // Total alpha budget — spread across fragments so they don't blow out to white
+    const alphaBudget = 0.35;
     for (let f = 0; f < fragCount; f++) {
       const seed = f * 2.71 + 0.5;
       const fw = ringModWarp(hx + f * 50, hy + f * 30, seed);
-      // At extreme, fragments fly further out
-      const spread = 0.6 + f * 0.15 + extreme * 0.5;
+      // Fragments spread outward — further at extreme
+      const spread = 0.5 + f * 0.12 + extreme * 0.4;
       const fx = hx + fw.dx * spread;
       const fy = hy + fw.dy * spread;
-      // Fragment sizes vary more wildly at extreme
-      const sizeVar = extreme > 0.1 ? Math.sin(time * rmSpeed * 0.5 + seed * 4.7) * 0.35 : 0;
-      const fR = R * (0.4 + sizeVar + Math.sin(time * rmSpeed * 0.3 + seed * 2.1) * 0.15);
-      const fragAlpha = ringMix * (0.2 + extreme * 0.15) * (1 - f / (fragCount + 2));
+      const sizeVar = extreme > 0.1 ? Math.sin(time * rmSpeed * 0.5 + seed * 4.7) * 0.25 : 0;
+      const fR = R * (0.35 + sizeVar + Math.sin(time * rmSpeed * 0.3 + seed * 2.1) * 0.12);
+      // Each fragment gets a share of the alpha budget — prevents stacking to white
+      const fragAlpha = (alphaBudget / fragCount) * ringMix * (1 - f / (fragCount + 2));
 
       const fg = ctx.createRadialGradient(fx, fy, 0, fx, fy, fR);
-      fg.addColorStop(0, `hsla(45, 100%, 85%, ${fragAlpha})`);
-      fg.addColorStop(0.3, `hsla(30, 95%, 60%, ${fragAlpha * 0.6})`);
-      fg.addColorStop(0.7, `hsla(15, 85%, 40%, ${fragAlpha * 0.2})`);
-      fg.addColorStop(1, 'hsla(5, 80%, 25%, 0)');
+      fg.addColorStop(0, `hsla(45, 100%, 75%, ${fragAlpha})`);
+      fg.addColorStop(0.3, `hsla(30, 90%, 55%, ${fragAlpha * 0.5})`);
+      fg.addColorStop(0.7, `hsla(15, 80%, 38%, ${fragAlpha * 0.15})`);
+      fg.addColorStop(1, 'hsla(5, 70%, 25%, 0)');
       ctx.fillStyle = fg;
       ctx.beginPath(); ctx.arc(fx, fy, fR, 0, TAU); ctx.fill();
     }
