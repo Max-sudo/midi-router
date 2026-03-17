@@ -19,6 +19,8 @@ const passPB     = $('#route-pass-pb');
 const passPC     = $('#route-pass-pc');
 const passAT     = $('#route-pass-at');
 const selectBtn  = $('#route-select-range');
+const ccMapField = $('#route-ccmap-field');
+const ccMapInfo  = $('#route-ccmap-info');
 
 let currentRouteId = null;
 let _justOpened = false;
@@ -109,6 +111,14 @@ export function open(routeId) {
   passPB.checked = route.passPitchBend;
   passPC.checked = route.passProgramChange;
   passAT.checked = route.passAftertouch;
+
+  // Show CC map indicator if present
+  if (route.ccMap && route.ccMap.length > 0) {
+    ccMapField.hidden = false;
+    ccMapInfo.textContent = `${route.ccMap.length} rules active`;
+  } else {
+    ccMapField.hidden = true;
+  }
 
   // Rebuild zone options and set from stored zone
   rebuildZoneOptions();

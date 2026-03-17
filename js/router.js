@@ -23,6 +23,7 @@ function createRoute(inputId, outputId, overrides = {}) {
     passAftertouch: true,
     enabled: true,
     color: nextCableColor(),
+    ccMap: null,          // null = pass-through, or Array<{ fromCC, toCC, toChannel }>
     ...overrides,
   };
 }
@@ -128,9 +129,19 @@ function handleMessage(inputId, data, timestamp) {
       }
     }
 
-    // Build output data (possibly with channel remap)
+    // CC mapping: rewrite CC number and channel per mapping table
     let outData = data;
-    if (route.channelOut !== null && channel !== route.channelOut) {
+    if (msgType === 'cc' && route.ccMap) {
+      const ccNum = data[1];
+      const mapping = route.ccMap.find(m => m.fromCC === ccNum);
+      if (!mapping) continue; // drop unmapped CCs
+      outData = new Uint8Array(data);
+      outData[1] = mapping.toCC;
+      if (mapping.toChannel) {
+        outData[0] = 0xB0 | (mapping.toChannel - 1);
+      }
+    } else if (route.channelOut !== null && channel !== route.channelOut) {
+      // Standard channel remap (when no ccMap active)
       outData = new Uint8Array(data);
       outData[0] = (status & 0xF0) | (route.channelOut - 1);
     }
@@ -182,6 +193,7 @@ export function serialiseRoutes() {
     passAftertouch:    r.passAftertouch,
     enabled:    r.enabled,
     color:      r.color,
+    ccMap:      r.ccMap,
     // Store names for fuzzy restore
     inputName:  getDeviceName(r.inputId, 'input'),
     outputName: getDeviceName(r.outputId, 'output'),
@@ -190,7 +202,7 @@ export function serialiseRoutes() {
 
 export function restoreRoutes(serialised) {
   clearAllRoutes();
-  const devices = midi.getDevices();
+  const devices = midi.getAllDevicesUnfiltered();
   for (const s of serialised) {
     const inputId  = resolveDeviceId(s.inputId, s.inputName, devices.inputs);
     const outputId = resolveDeviceId(s.outputId, s.outputName, devices.outputs);
@@ -213,6 +225,7 @@ export function restoreRoutes(serialised) {
         passAftertouch:    s.passAftertouch ?? true,
         enabled:    s.enabled ?? true,
         color:      s.color,
+        ccMap:      s.ccMap || null,
       });
     }
   }

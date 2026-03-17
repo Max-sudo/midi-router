@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Studio Tools</title>
+  <title>Studio Tools — Your wildest musical dreams are here</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,6 +30,7 @@
 
     <!-- Tab Bar -->
     <header class="header">
+      <span class="header__brand">Studio Tools</span>
       <nav class="header__tabs">
         <button class="tab-btn tab-btn--active" data-tab="home">Home</button>
         <button class="tab-btn" data-tab="chat">Chat</button>
@@ -45,7 +46,7 @@
     <!-- Per-tab toolbar (sits below tab bar) -->
     <div class="toolbar" id="toolbar">
       <!-- Home controls -->
-      <div class="tab-controls" id="home-controls" data-tab="home"></div>
+      <div class="tab-controls" id="home-controls" data-tab="home" hidden></div>
       <!-- MIDI Router controls -->
       <div class="preset-bar tab-controls" id="midi-controls" data-tab="midi" hidden>
         <select class="dropdown preset-bar__dropdown" id="preset-select">
@@ -151,6 +152,10 @@
       <button class="btn btn--icon route-editor__close" id="route-editor-close">&times;</button>
     </div>
     <div class="route-editor__body">
+      <div class="field" id="route-ccmap-field" hidden>
+        <label class="field__label">CC Mapping</label>
+        <span class="field__hint" id="route-ccmap-info"></span>
+      </div>
       <div class="field">
         <label class="field__label">Zone</label>
         <select class="dropdown" id="route-zone"></select>

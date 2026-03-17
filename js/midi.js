@@ -58,6 +58,22 @@ export function getDevices() {
   return { inputs, outputs };
 }
 
+// Unfiltered version — includes DAW/hidden ports for preset resolution
+export function getAllDevicesUnfiltered() {
+  if (!midiAccess) return { inputs: [], outputs: [] };
+  const inputs = [];
+  for (const [id, input] of midiAccess.inputs) {
+    inputs.push({ id, name: input.name, manufacturer: input.manufacturer, state: input.state });
+  }
+  const outputs = [];
+  for (const [id, output] of midiAccess.outputs) {
+    outputs.push({ id, name: output.name, manufacturer: output.manufacturer, state: output.state });
+  }
+  inputs.sort((a, b) => a.name.localeCompare(b.name));
+  outputs.sort((a, b) => a.name.localeCompare(b.name));
+  return { inputs, outputs };
+}
+
 // ── Listen to an input device ──────────────────────────────────────
 export function listenToInput(inputId, callback) {
   if (!midiAccess) return;
