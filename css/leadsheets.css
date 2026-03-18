@@ -166,6 +166,17 @@
 .ls-tag-dot--up      { background: #f0b429; }
 .ls-tag-dot--learned { background: #34d399; }
 
+/* ── Sidebar footer ──────────────────────────────────────────────── */
+.ls-sidebar__footer {
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.ls-sidebar__footer .ls-download-btn {
+  width: 100%;
+}
+
 /* ── Set lists section ────────────────────────────────────────────── */
 .ls-setlists-section {
   border-top: 1px solid var(--border-subtle);
@@ -231,13 +242,6 @@
   justify-content: center;
   color: var(--text-secondary);
   font-size: var(--font-size-base);
-}
-
-.ls-empty-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-4);
 }
 
 .ls-download-btn {

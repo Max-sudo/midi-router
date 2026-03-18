@@ -605,15 +605,13 @@ export function init() {
           <button class="ls-filter-btn ls-filter-btn--learned" data-tag="learned">Learned</button>
         </div>
         <div class="ls-list" id="ls-list"></div>
+        <div class="ls-sidebar__footer">
+          <button class="ls-download-btn" id="ls-download-btn">Download for Offline</button>
+        </div>
       </aside>
       <main class="ls-viewer">
         <button class="ls-toggle" id="ls-toggle" title="Toggle sidebar">☰</button>
-        <div class="ls-viewer__empty" id="ls-viewer-empty">
-          <div class="ls-empty-content">
-            <span>Select a lead sheet</span>
-            <button class="ls-download-btn" id="ls-download-btn">Download for Offline</button>
-          </div>
-        </div>
+        <div class="ls-viewer__empty" id="ls-viewer-empty">Select a lead sheet</div>
 
         <!-- Sheet panel -->
         <div id="ls-sheet-panel" hidden>
