@@ -63,7 +63,6 @@ const FILES = [
   'I_Love_Paris.png',
   'I_Love_You.png',
   'I_Mean_You.png',
-  'I_Remember_Clifford.png',
   'I_Wish_I_Knew_How_It_Would_Feel_to_Be_Free.png',
   'Ill_Never_Smile_Again.png',
   'Ill_Remember_April.png',
@@ -128,7 +127,8 @@ const FILES = [
 
 const TAG_LABELS = { ballad: 'Ballad', mid: 'Mid', up: 'Up', learned: 'Learned' };
 
-const sheets = FILES
+// Raw flat list — one entry per file
+const rawSheets = FILES
   .map(f => ({
     title: f.replace('.png', '').replace(/_/g, ' '),
     url: `assets/leadsheets/${encodeURIComponent(f)}`,
@@ -166,24 +166,52 @@ let renames = loadRenames();
 let selectedTitle = null;
 let activeSetListId = null;
 let tagFilters = new Set();   // empty = show all
-let filteredSheets = [...sheets];
 
 // Display name: use renamed title if set, otherwise original
 function displayName(title) { return renames[title] || title; }
 
+// Group raw sheets by display name — sheets renamed to the same name merge into multi-page entries
+function buildGroupedSheets() {
+  const groups = new Map();
+  for (const s of rawSheets) {
+    const name = displayName(s.title);
+    if (!groups.has(name)) {
+      groups.set(name, { name, urls: [], origTitles: [] });
+    }
+    const g = groups.get(name);
+    g.urls.push(s.url);
+    g.origTitles.push(s.title);
+  }
+  return [...groups.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+let sheets = buildGroupedSheets();
+let filteredSheets = [...sheets];
+
 // DOM refs
-let listEl, setListsEl, viewerImg, viewerTitleEl, viewerEmpty,
+let listEl, setListsEl, viewerPages, viewerTitleEl, viewerEmpty,
     viewerHeader, tagPickerEl, sheetPanel, setListPanel,
     setListNameEl, setListSongsEl, searchEl, sidebarEl, toggleBtn;
 
 // ── Tag helpers ────────────────────────────────────────────────────
-function getTags(title) { return tags[title] || []; }
-function toggleTag(title, tag) {
-  const current = getTags(title);
+function getTags(name) {
+  // Check by display name first, then fall back to original title
+  if (tags[name]) return tags[name];
+  // Check if any original title has tags (for migration)
+  const sheet = sheets.find(s => s.name === name);
+  if (sheet) {
+    for (const orig of sheet.origTitles) {
+      if (tags[orig] && tags[orig].length) return tags[orig];
+    }
+  }
+  return [];
+}
+function toggleTag(name, tag) {
+  const current = getTags(name);
   const idx = current.indexOf(tag);
   if (idx === -1) current.push(tag);
   else current.splice(idx, 1);
-  tags[title] = current;
+  tags[name] = current;
   saveTags(tags);
 }
 
@@ -200,10 +228,11 @@ function newSetList() {
 function applyFilter(query = searchEl?.value || '') {
   const q = query.toLowerCase();
   filteredSheets = sheets.filter(s => {
-    const matchesSearch = !q || displayName(s.title).toLowerCase().includes(q) || s.title.toLowerCase().includes(q);
+    const matchesSearch = !q || s.name.toLowerCase().includes(q) ||
+      s.origTitles.some(t => t.toLowerCase().includes(q));
     if (!matchesSearch) return false;
     if (tagFilters.size === 0) return true;
-    const songTags = getTags(s.title);
+    const songTags = getTags(s.name);
     return [...tagFilters].some(t => songTags.includes(t));
   });
   renderList();
@@ -270,10 +299,10 @@ function showTagPopup(item, title) {
 function renderList() {
   listEl.innerHTML = '';
   for (const sheet of filteredSheets) {
-    const songTags = getTags(sheet.title);
+    const songTags = getTags(sheet.name);
     const item = document.createElement('div');
     item.className = 'ls-list__item';
-    if (sheet.title === selectedTitle) item.classList.add('ls-list__item--active');
+    if (sheet.name === selectedTitle) item.classList.add('ls-list__item--active');
 
     const dots = document.createElement('span');
     dots.className = 'ls-tag-dots';
@@ -284,13 +313,21 @@ function renderList() {
     }
     item.appendChild(dots);
 
+    // Page count badge for multi-page sheets
+    if (sheet.urls.length > 1) {
+      const badge = document.createElement('span');
+      badge.className = 'ls-page-badge';
+      badge.textContent = sheet.urls.length;
+      item.appendChild(badge);
+    }
+
     const label = document.createElement('span');
-    label.textContent = displayName(sheet.title);
+    label.textContent = sheet.name;
     item.appendChild(label);
 
     item.addEventListener('click', () => {
       dismissTagPopup();
-      if (activeSetListId) addToActiveSetList(sheet.title);
+      if (activeSetListId) addToActiveSetList(sheet.name);
       else selectSheet(sheet);
     });
 
@@ -298,10 +335,10 @@ function renderList() {
     let longPressTimer = null;
     item.addEventListener('contextmenu', (e) => {
       e.preventDefault();
-      showTagPopup(item, sheet.title);
+      showTagPopup(item, sheet.name);
     });
     item.addEventListener('touchstart', () => {
-      longPressTimer = setTimeout(() => showTagPopup(item, sheet.title), 500);
+      longPressTimer = setTimeout(() => showTagPopup(item, sheet.name), 500);
     }, { passive: true });
     item.addEventListener('touchend', () => clearTimeout(longPressTimer));
     item.addEventListener('touchmove', () => clearTimeout(longPressTimer));
@@ -336,11 +373,11 @@ function closeSetList() {
 
 // ── Select a sheet ─────────────────────────────────────────────────
 function selectSheet(sheet) {
-  selectedTitle = sheet.title;
+  selectedTitle = sheet.name;
   activeSetListId = null;
 
   for (const item of listEl.querySelectorAll('.ls-list__item')) {
-    const isActive = item.querySelector('span:last-child')?.textContent === sheet.title;
+    const isActive = item.querySelector('span:last-child')?.textContent === sheet.name;
     item.classList.toggle('ls-list__item--active', isActive);
   }
   const activeItem = listEl.querySelector('.ls-list__item--active');
@@ -349,10 +386,18 @@ function selectSheet(sheet) {
   sheetPanel.hidden = false;
   setListPanel.hidden = true;
   viewerEmpty.hidden = true;
-  viewerImg.hidden = false;
-  viewerTitleEl.textContent = displayName(sheet.title);
-  viewerImg.src = sheet.url;
+  viewerTitleEl.textContent = sheet.name;
   viewerHeader.hidden = false;
+
+  // Render pages
+  viewerPages.innerHTML = '';
+  for (const url of sheet.urls) {
+    const img = document.createElement('img');
+    img.className = 'ls-viewer__img';
+    img.src = url;
+    img.alt = sheet.name;
+    viewerPages.appendChild(img);
+  }
 
   renderTagPicker();
   renderSetListsSidebar();
@@ -476,7 +521,7 @@ function renderSetListEditor() {
     name.textContent = displayName(title);
     name.addEventListener('click', (e) => {
       e.stopPropagation();
-      const sheet = sheets.find(s => s.title === title);
+      const sheet = sheets.find(s => s.name === displayName(title) || s.origTitles.includes(title));
       if (sheet) selectSheet(sheet);
     });
 
@@ -582,7 +627,7 @@ function addToActiveSetList(title) {
 // ── Keyboard navigation ────────────────────────────────────────────
 function navigate(dir) {
   if (activeSetListId) return;
-  const current = selectedTitle ? sheets.findIndex(s => s.title === selectedTitle) : -1;
+  const current = selectedTitle ? sheets.findIndex(s => s.name === selectedTitle) : -1;
   const next = current + dir;
   if (next < 0 || next >= sheets.length) return;
   selectSheet(sheets[next]);
@@ -629,7 +674,7 @@ export function init() {
             <span class="ls-viewer__title" id="ls-viewer-title"></span>
             <div class="ls-tag-picker" id="ls-tag-picker"></div>
           </div>
-          <img class="ls-viewer__img" id="ls-viewer-img" alt="">
+          <div class="ls-viewer__pages" id="ls-viewer-pages"></div>
         </div>
 
         <!-- Rename panel -->
@@ -662,7 +707,7 @@ export function init() {
 
   listEl         = panel.querySelector('#ls-list');
   setListsEl     = panel.querySelector('#ls-setlists-list');
-  viewerImg      = panel.querySelector('#ls-viewer-img');
+  viewerPages    = panel.querySelector('#ls-viewer-pages');
   viewerTitleEl  = panel.querySelector('#ls-viewer-title');
   viewerEmpty    = panel.querySelector('#ls-viewer-empty');
   viewerHeader   = panel.querySelector('#ls-viewer-header');
@@ -676,7 +721,7 @@ export function init() {
   toggleBtn      = panel.querySelector('#ls-toggle');
 
   // Sidebar toggle — tap the lead sheet image to collapse/expand sidebar
-  viewerImg.addEventListener('click', () => {
+  viewerPages.addEventListener('click', () => {
     sidebarEl.classList.toggle('ls-sidebar--hidden');
   });
   // Also keep the hamburger button as a fallback
@@ -763,21 +808,21 @@ function initRenameMode(panel) {
       exitRename();
       return;
     }
-    const sheet = renameQueue[renameIndex];
-    renameImg.src = sheet.url;
-    renameInput.value = displayName(sheet.title);
+    const raw = renameQueue[renameIndex];
+    renameImg.src = raw.url;
+    renameInput.value = displayName(raw.title);
     renameInput.select();
     renameInput.focus();
     renameCounter.textContent = `${renameIndex + 1} of ${renameQueue.length}`;
   }
 
   function saveAndNext() {
-    const sheet = renameQueue[renameIndex];
+    const raw = renameQueue[renameIndex];
     const newName = renameInput.value.trim();
-    if (newName && newName !== sheet.title) {
-      renames[sheet.title] = newName;
-    } else if (newName === sheet.title) {
-      delete renames[sheet.title];
+    if (newName && newName !== raw.title) {
+      renames[raw.title] = newName;
+    } else if (newName === raw.title) {
+      delete renames[raw.title];
     }
     saveRenames(renames);
     renameIndex++;
@@ -785,8 +830,12 @@ function initRenameMode(panel) {
   }
 
   function enterRename() {
-    // Build queue from currently filtered sheets
-    renameQueue = [...filteredSheets];
+    // Build queue from raw (ungrouped) sheets, filtered by current search
+    const q = (searchEl?.value || '').toLowerCase();
+    renameQueue = rawSheets.filter(s => {
+      if (!q) return true;
+      return displayName(s.title).toLowerCase().includes(q) || s.title.toLowerCase().includes(q);
+    });
     renameIndex = 0;
 
     sheetPanel.hidden = true;
@@ -802,7 +851,8 @@ function initRenameMode(panel) {
     viewerEmpty.hidden = false;
     renameQueue = [];
     renameIndex = 0;
-    // Refresh the list to show new names
+    // Rebuild grouped sheets and refresh
+    sheets = buildGroupedSheets();
     applyFilter();
     renderSetListsSidebar();
   }
@@ -834,7 +884,7 @@ function initOfflineDownload(btn) {
     return;
   }
 
-  const allUrls = sheets.map(s => s.url);
+  const allUrls = rawSheets.map(s => s.url);
 
   // Check current cache status on load
   navigator.serviceWorker.ready.then(() => {
