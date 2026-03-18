@@ -171,10 +171,30 @@
   padding: var(--space-3) var(--space-4);
   border-top: 1px solid var(--border-subtle);
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
-.ls-sidebar__footer .ls-download-btn {
+.ls-sidebar__footer .ls-download-btn,
+.ls-sidebar__footer .ls-rename-start-btn {
   width: 100%;
+}
+
+.ls-rename-start-btn {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  padding: var(--space-2) var(--space-5);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.ls-rename-start-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--accent-cyan);
 }
 
 /* ── Set lists section ────────────────────────────────────────────── */
@@ -331,7 +351,15 @@
   box-sizing: border-box;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
   user-select: none;
+  outline: none;
+}
+
+.ls-viewer__img:focus,
+.ls-viewer__img:active {
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* ── Set list editor ──────────────────────────────────────────────── */
@@ -563,3 +591,62 @@
 .ls-tag-popup__btn--active.ls-tag-popup__btn--mid     { border-color: var(--accent-magenta); color: var(--accent-magenta); background: rgba(191,90,242,0.08); }
 .ls-tag-popup__btn--active.ls-tag-popup__btn--up      { border-color: #f0b429; color: #f0b429; background: rgba(240,180,41,0.08); }
 .ls-tag-popup__btn--active.ls-tag-popup__btn--learned { border-color: #34d399; color: #34d399; background: rgba(52,211,153,0.08); }
+
+/* ── Rename panel ────────────────────────────────────────────────── */
+#ls-rename-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+#ls-rename-panel[hidden] {
+  display: none;
+}
+
+.ls-rename-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.ls-rename-input {
+  flex: 1;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--font-size-base);
+  padding: var(--space-2) var(--space-3);
+  outline: none;
+}
+
+.ls-rename-input:focus {
+  border-color: var(--accent-cyan);
+}
+
+.ls-rename-skip,
+.ls-rename-done {
+  background: none;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.ls-rename-skip:hover { color: var(--text-primary); border-color: var(--text-primary); }
+.ls-rename-done:hover { color: var(--accent-cyan); border-color: var(--accent-cyan); }
+
+.ls-rename-counter {
+  padding: var(--space-1) var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}

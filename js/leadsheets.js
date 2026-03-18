@@ -154,13 +154,22 @@ function loadSetLists() {
 }
 function saveSetLists(sl) { localStorage.setItem('ls_setlists', JSON.stringify(sl)); }
 
+function loadRenames() {
+  try { return JSON.parse(localStorage.getItem('ls_renames') || '{}'); } catch { return {}; }
+}
+function saveRenames(r) { localStorage.setItem('ls_renames', JSON.stringify(r)); }
+
 // ── State ──────────────────────────────────────────────────────────
 let tags = loadTags();
 let setLists = loadSetLists();
+let renames = loadRenames();
 let selectedTitle = null;
 let activeSetListId = null;
 let tagFilters = new Set();   // empty = show all
 let filteredSheets = [...sheets];
+
+// Display name: use renamed title if set, otherwise original
+function displayName(title) { return renames[title] || title; }
 
 // DOM refs
 let listEl, setListsEl, viewerImg, viewerTitleEl, viewerEmpty,
@@ -191,7 +200,7 @@ function newSetList() {
 function applyFilter(query = searchEl?.value || '') {
   const q = query.toLowerCase();
   filteredSheets = sheets.filter(s => {
-    const matchesSearch = !q || s.title.toLowerCase().includes(q);
+    const matchesSearch = !q || displayName(s.title).toLowerCase().includes(q) || s.title.toLowerCase().includes(q);
     if (!matchesSearch) return false;
     if (tagFilters.size === 0) return true;
     const songTags = getTags(s.title);
@@ -276,7 +285,7 @@ function renderList() {
     item.appendChild(dots);
 
     const label = document.createElement('span');
-    label.textContent = sheet.title;
+    label.textContent = displayName(sheet.title);
     item.appendChild(label);
 
     item.addEventListener('click', () => {
@@ -341,7 +350,7 @@ function selectSheet(sheet) {
   setListPanel.hidden = true;
   viewerEmpty.hidden = true;
   viewerImg.hidden = false;
-  viewerTitleEl.textContent = sheet.title;
+  viewerTitleEl.textContent = displayName(sheet.title);
   viewerImg.src = sheet.url;
   viewerHeader.hidden = false;
 
@@ -464,7 +473,7 @@ function renderSetListEditor() {
 
     const name = document.createElement('span');
     name.className = 'ls-setlist-row__name';
-    name.textContent = title;
+    name.textContent = displayName(title);
     name.addEventListener('click', (e) => {
       e.stopPropagation();
       const sheet = sheets.find(s => s.title === title);
@@ -606,6 +615,7 @@ export function init() {
         </div>
         <div class="ls-list" id="ls-list"></div>
         <div class="ls-sidebar__footer">
+          <button class="ls-rename-start-btn" id="ls-rename-start">Rename Sheets</button>
           <button class="ls-download-btn" id="ls-download-btn">Download for Offline</button>
         </div>
       </aside>
@@ -620,6 +630,17 @@ export function init() {
             <div class="ls-tag-picker" id="ls-tag-picker"></div>
           </div>
           <img class="ls-viewer__img" id="ls-viewer-img" alt="">
+        </div>
+
+        <!-- Rename panel -->
+        <div id="ls-rename-panel" hidden>
+          <div class="ls-rename-bar">
+            <input class="ls-rename-input" id="ls-rename-input" type="text" placeholder="Enter song name..." autocomplete="off">
+            <button class="ls-rename-skip" id="ls-rename-skip">Skip</button>
+            <button class="ls-rename-done" id="ls-rename-done">Done</button>
+          </div>
+          <div class="ls-rename-counter" id="ls-rename-counter"></div>
+          <img class="ls-viewer__img" id="ls-rename-img" alt="">
         </div>
 
         <!-- Set list editor panel -->
@@ -713,12 +734,97 @@ export function init() {
     else if (e.key === 'ArrowLeft') navigate(-1);
   });
 
+  // Rename mode
+  initRenameMode(panel);
+
   // Offline download button
   const downloadBtn = panel.querySelector('#ls-download-btn');
   initOfflineDownload(downloadBtn);
 
   applyFilter();
   renderSetListsSidebar();
+}
+
+// ── Bulk rename mode ─────────────────────────────────────────────────
+function initRenameMode(panel) {
+  const renamePanel = panel.querySelector('#ls-rename-panel');
+  const renameInput = panel.querySelector('#ls-rename-input');
+  const renameImg   = panel.querySelector('#ls-rename-img');
+  const renameCounter = panel.querySelector('#ls-rename-counter');
+  const startBtn    = panel.querySelector('#ls-rename-start');
+  const skipBtn     = panel.querySelector('#ls-rename-skip');
+  const doneBtn     = panel.querySelector('#ls-rename-done');
+
+  let renameQueue = [];
+  let renameIndex = 0;
+
+  function showCurrentSheet() {
+    if (renameIndex >= renameQueue.length) {
+      exitRename();
+      return;
+    }
+    const sheet = renameQueue[renameIndex];
+    renameImg.src = sheet.url;
+    renameInput.value = displayName(sheet.title);
+    renameInput.select();
+    renameInput.focus();
+    renameCounter.textContent = `${renameIndex + 1} of ${renameQueue.length}`;
+  }
+
+  function saveAndNext() {
+    const sheet = renameQueue[renameIndex];
+    const newName = renameInput.value.trim();
+    if (newName && newName !== sheet.title) {
+      renames[sheet.title] = newName;
+    } else if (newName === sheet.title) {
+      delete renames[sheet.title];
+    }
+    saveRenames(renames);
+    renameIndex++;
+    showCurrentSheet();
+  }
+
+  function enterRename() {
+    // Build queue from currently filtered sheets
+    renameQueue = [...filteredSheets];
+    renameIndex = 0;
+
+    sheetPanel.hidden = true;
+    setListPanel.hidden = true;
+    viewerEmpty.hidden = true;
+    renamePanel.hidden = false;
+
+    showCurrentSheet();
+  }
+
+  function exitRename() {
+    renamePanel.hidden = true;
+    viewerEmpty.hidden = false;
+    renameQueue = [];
+    renameIndex = 0;
+    // Refresh the list to show new names
+    applyFilter();
+    renderSetListsSidebar();
+  }
+
+  startBtn.addEventListener('click', enterRename);
+
+  renameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveAndNext();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      exitRename();
+    }
+  });
+
+  skipBtn.addEventListener('click', () => {
+    renameIndex++;
+    showCurrentSheet();
+  });
+
+  doneBtn.addEventListener('click', exitRename);
 }
 
 // ── Offline download ────────────────────────────────────────────────
