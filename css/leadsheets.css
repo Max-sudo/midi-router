@@ -326,6 +326,8 @@
   padding: var(--space-4);
   box-sizing: border-box;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
 }
 
 /* ── Set list editor ──────────────────────────────────────────────── */

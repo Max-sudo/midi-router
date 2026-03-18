@@ -186,7 +186,7 @@ document.addEventListener('keydown', (e) => {
 
 // ── Service worker (offline lead sheets) ──────────────────────────
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(() => {});
+  navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch(() => {});
 }
 
 // ── Launch ─────────────────────────────────────────────────────────

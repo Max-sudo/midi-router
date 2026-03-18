@@ -1,4 +1,4 @@
-const CACHE_NAME = 'leadsheets-v1';
+const CACHE_NAME = 'leadsheets-v2';
 
 self.addEventListener('install', () => {
   self.skipWaiting();
@@ -24,9 +24,9 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // Network-first for app files (HTML, JS, CSS)
+  // Network-first for app files (HTML, JS, CSS) — bypass HTTP cache
   e.respondWith(
-    fetch(e.request).catch(() => caches.match(e.request))
+    fetch(e.request, { cache: 'no-cache' }).catch(() => caches.match(e.request))
   );
 });
 
