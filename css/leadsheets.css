@@ -325,6 +325,7 @@
   display: block;
   padding: var(--space-4);
   box-sizing: border-box;
+  cursor: pointer;
 }
 
 /* ── Set list editor ──────────────────────────────────────────────── */

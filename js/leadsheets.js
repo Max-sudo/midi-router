@@ -345,11 +345,6 @@ function selectSheet(sheet) {
   viewerImg.src = sheet.url;
   viewerHeader.hidden = false;
 
-  // Auto-collapse sidebar on touch/narrow screens after selecting a sheet
-  if (window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 1100) {
-    sidebarEl.classList.add('ls-sidebar--hidden');
-  }
-
   renderTagPicker();
   renderSetListsSidebar();
 }
@@ -661,7 +656,11 @@ export function init() {
   sidebarEl      = panel.querySelector('.ls-sidebar');
   toggleBtn      = panel.querySelector('#ls-toggle');
 
-  // Sidebar toggle
+  // Sidebar toggle — tap the lead sheet image to collapse/expand sidebar
+  viewerImg.addEventListener('click', () => {
+    sidebarEl.classList.toggle('ls-sidebar--hidden');
+  });
+  // Also keep the hamburger button as a fallback
   toggleBtn.addEventListener('click', () => {
     sidebarEl.classList.toggle('ls-sidebar--hidden');
   });
