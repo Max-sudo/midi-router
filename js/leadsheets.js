@@ -836,7 +836,16 @@ function initRenameMode(panel) {
       if (!q) return true;
       return displayName(s.title).toLowerCase().includes(q) || s.title.toLowerCase().includes(q);
     });
+
+    // Start from the currently selected sheet if there is one
     renameIndex = 0;
+    if (selectedTitle) {
+      const selected = sheets.find(s => s.name === selectedTitle);
+      if (selected) {
+        const startIdx = renameQueue.findIndex(s => selected.origTitles.includes(s.title));
+        if (startIdx > 0) renameIndex = startIdx;
+      }
+    }
 
     sheetPanel.hidden = true;
     setListPanel.hidden = true;
