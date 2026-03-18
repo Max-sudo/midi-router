@@ -184,5 +184,10 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// ── Service worker (offline lead sheets) ──────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
 // ── Launch ─────────────────────────────────────────────────────────
 boot();

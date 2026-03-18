@@ -165,7 +165,7 @@ let filteredSheets = [...sheets];
 // DOM refs
 let listEl, setListsEl, viewerImg, viewerTitleEl, viewerEmpty,
     viewerHeader, tagPickerEl, sheetPanel, setListPanel,
-    setListNameEl, setListSongsEl, searchEl;
+    setListNameEl, setListSongsEl, searchEl, sidebarEl, toggleBtn;
 
 // ── Tag helpers ────────────────────────────────────────────────────
 function getTags(title) { return tags[title] || []; }
@@ -201,6 +201,63 @@ function applyFilter(query = searchEl?.value || '') {
 }
 
 // ── Render song list ───────────────────────────────────────────────
+let activeTagPopup = null;
+
+function dismissTagPopup() {
+  if (activeTagPopup) {
+    activeTagPopup.remove();
+    activeTagPopup = null;
+  }
+}
+
+function showTagPopup(item, title) {
+  dismissTagPopup();
+
+  const popup = document.createElement('div');
+  popup.className = 'ls-tag-popup';
+
+  const current = getTags(title);
+  for (const [key, label] of Object.entries(TAG_LABELS)) {
+    const btn = document.createElement('button');
+    btn.className = `ls-tag-popup__btn ls-tag-popup__btn--${key}`;
+    if (current.includes(key)) btn.classList.add('ls-tag-popup__btn--active');
+    btn.textContent = label;
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleTag(title, key);
+      btn.classList.toggle('ls-tag-popup__btn--active', getTags(title).includes(key));
+      // Update the dots on the list item
+      const dots = item.querySelector('.ls-tag-dots');
+      if (dots) {
+        const updatedTags = getTags(title);
+        dots.querySelectorAll('.ls-tag-dot').forEach((dot, idx) => {
+          const tag = ['ballad', 'mid', 'up', 'learned'][idx];
+          dot.className = `ls-tag-dot ls-tag-dot--${updatedTags.includes(tag) ? tag : 'none'}`;
+        });
+      }
+    });
+    popup.appendChild(btn);
+  }
+
+  // Position popup to the right of the item
+  const rect = item.getBoundingClientRect();
+  const sidebarRect = item.closest('.ls-sidebar').getBoundingClientRect();
+  popup.style.top = `${rect.top}px`;
+  popup.style.left = `${sidebarRect.right + 4}px`;
+
+  document.body.appendChild(popup);
+  activeTagPopup = popup;
+
+  // Dismiss when clicking outside
+  const onClickOutside = (e) => {
+    if (!popup.contains(e.target) && !item.contains(e.target)) {
+      dismissTagPopup();
+      document.removeEventListener('click', onClickOutside);
+    }
+  };
+  setTimeout(() => document.addEventListener('click', onClickOutside), 0);
+}
+
 function renderList() {
   listEl.innerHTML = '';
   for (const sheet of filteredSheets) {
@@ -223,9 +280,23 @@ function renderList() {
     item.appendChild(label);
 
     item.addEventListener('click', () => {
+      dismissTagPopup();
       if (activeSetListId) addToActiveSetList(sheet.title);
       else selectSheet(sheet);
     });
+
+    // Long-press / right-click to show tag popup
+    let longPressTimer = null;
+    item.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      showTagPopup(item, sheet.title);
+    });
+    item.addEventListener('touchstart', () => {
+      longPressTimer = setTimeout(() => showTagPopup(item, sheet.title), 500);
+    }, { passive: true });
+    item.addEventListener('touchend', () => clearTimeout(longPressTimer));
+    item.addEventListener('touchmove', () => clearTimeout(longPressTimer));
+
     listEl.appendChild(item);
   }
 }
@@ -273,6 +344,11 @@ function selectSheet(sheet) {
   viewerTitleEl.textContent = sheet.title;
   viewerImg.src = sheet.url;
   viewerHeader.hidden = false;
+
+  // Auto-collapse sidebar on touch/narrow screens after selecting a sheet
+  if (window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 1100) {
+    sidebarEl.classList.add('ls-sidebar--hidden');
+  }
 
   renderTagPicker();
   renderSetListsSidebar();
@@ -326,7 +402,48 @@ function renderSetListEditor() {
     return;
   }
 
-  sl.songs.forEach((title, i) => {
+  // Compute set numbers from break positions
+  let setNumber = 1;
+  let songNum = 0;
+
+  sl.songs.forEach((entry, i) => {
+    const isBreak = entry === '__break__';
+
+    if (isBreak) {
+      // Render set break divider
+      const breakRow = document.createElement('div');
+      breakRow.className = 'ls-setlist-break';
+      breakRow.draggable = true;
+      breakRow.dataset.index = i;
+
+      const label = document.createElement('span');
+      label.className = 'ls-setlist-break__label';
+      setNumber++;
+      label.textContent = `Set ${setNumber}`;
+
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'ls-setlist-row__btn ls-setlist-row__btn--remove';
+      removeBtn.textContent = '✕';
+      removeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sl.songs.splice(i, 1);
+        saveSetLists(setLists);
+        renderSetListEditor();
+      });
+
+      breakRow.appendChild(label);
+      breakRow.appendChild(removeBtn);
+
+      attachDragEvents(breakRow, i, sl);
+
+      setListSongsEl.appendChild(breakRow);
+      songNum = 0;
+      return;
+    }
+
+    const title = entry;
+    songNum++;
+
     const row = document.createElement('div');
     row.className = 'ls-setlist-row';
     row.draggable = true;
@@ -339,7 +456,7 @@ function renderSetListEditor() {
 
     const num = document.createElement('span');
     num.className = 'ls-setlist-row__num';
-    num.textContent = i + 1;
+    num.textContent = songNum;
 
     const songTags = getTags(title);
     const dots = document.createElement('span');
@@ -370,72 +487,7 @@ function renderSetListEditor() {
       renderSetListEditor();
     });
 
-    // Desktop drag events
-    row.addEventListener('dragstart', (e) => {
-      dragSrcIndex = i;
-      row.classList.add('ls-setlist-row--dragging');
-      e.dataTransfer.effectAllowed = 'move';
-    });
-    row.addEventListener('dragend', () => {
-      row.classList.remove('ls-setlist-row--dragging');
-      for (const r of setListSongsEl.querySelectorAll('.ls-setlist-row')) {
-        r.classList.remove('ls-setlist-row--over');
-      }
-    });
-    row.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-      for (const r of setListSongsEl.querySelectorAll('.ls-setlist-row')) {
-        r.classList.remove('ls-setlist-row--over');
-      }
-      row.classList.add('ls-setlist-row--over');
-    });
-    row.addEventListener('drop', (e) => {
-      e.preventDefault();
-      if (dragSrcIndex === null || dragSrcIndex === i) return;
-      const [moved] = sl.songs.splice(dragSrcIndex, 1);
-      sl.songs.splice(i, 0, moved);
-      dragSrcIndex = null;
-      saveSetLists(setLists);
-      renderSetListEditor();
-    });
-
-    // Touch drag events (for mobile/tablet)
-    row.addEventListener('touchstart', (e) => {
-      // Don't start drag on remove button or song name link
-      if (e.target.closest('.ls-setlist-row__btn') || e.target.closest('.ls-setlist-row__name')) return;
-      dragSrcIndex = i;
-      row.classList.add('ls-setlist-row--dragging');
-    }, { passive: true });
-    row.addEventListener('touchmove', (e) => {
-      if (dragSrcIndex === null) return;
-      e.preventDefault();
-      const touch = e.touches[0];
-      const target = document.elementFromPoint(touch.clientX, touch.clientY);
-      const targetRow = target?.closest('.ls-setlist-row');
-      for (const r of setListSongsEl.querySelectorAll('.ls-setlist-row')) {
-        r.classList.remove('ls-setlist-row--over');
-      }
-      if (targetRow) targetRow.classList.add('ls-setlist-row--over');
-    }, { passive: false });
-    row.addEventListener('touchend', (e) => {
-      if (dragSrcIndex === null) return;
-      row.classList.remove('ls-setlist-row--dragging');
-      const touch = e.changedTouches[0];
-      const target = document.elementFromPoint(touch.clientX, touch.clientY);
-      const targetRow = target?.closest('.ls-setlist-row');
-      const targetIndex = targetRow ? parseInt(targetRow.dataset.index) : null;
-      for (const r of setListSongsEl.querySelectorAll('.ls-setlist-row')) {
-        r.classList.remove('ls-setlist-row--over');
-      }
-      if (targetIndex !== null && targetIndex !== dragSrcIndex) {
-        const [moved] = sl.songs.splice(dragSrcIndex, 1);
-        sl.songs.splice(targetIndex, 0, moved);
-        saveSetLists(setLists);
-        renderSetListEditor();
-      }
-      dragSrcIndex = null;
-    });
+    attachDragEvents(row, i, sl);
 
     row.appendChild(handle);
     row.appendChild(num);
@@ -443,6 +495,75 @@ function renderSetListEditor() {
     row.appendChild(name);
     row.appendChild(removeBtn);
     setListSongsEl.appendChild(row);
+  });
+}
+
+const DRAG_ROW_SELECTOR = '.ls-setlist-row, .ls-setlist-break';
+
+function attachDragEvents(row, i, sl) {
+  row.addEventListener('dragstart', (e) => {
+    dragSrcIndex = i;
+    row.classList.add('ls-setlist-row--dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  row.addEventListener('dragend', () => {
+    row.classList.remove('ls-setlist-row--dragging');
+    for (const r of setListSongsEl.querySelectorAll(DRAG_ROW_SELECTOR)) {
+      r.classList.remove('ls-setlist-row--over');
+    }
+  });
+  row.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    for (const r of setListSongsEl.querySelectorAll(DRAG_ROW_SELECTOR)) {
+      r.classList.remove('ls-setlist-row--over');
+    }
+    row.classList.add('ls-setlist-row--over');
+  });
+  row.addEventListener('drop', (e) => {
+    e.preventDefault();
+    if (dragSrcIndex === null || dragSrcIndex === i) return;
+    const [moved] = sl.songs.splice(dragSrcIndex, 1);
+    sl.songs.splice(i, 0, moved);
+    dragSrcIndex = null;
+    saveSetLists(setLists);
+    renderSetListEditor();
+  });
+
+  // Touch drag events
+  row.addEventListener('touchstart', (e) => {
+    if (e.target.closest('.ls-setlist-row__btn') || e.target.closest('.ls-setlist-row__name')) return;
+    dragSrcIndex = i;
+    row.classList.add('ls-setlist-row--dragging');
+  }, { passive: true });
+  row.addEventListener('touchmove', (e) => {
+    if (dragSrcIndex === null) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    const target = document.elementFromPoint(touch.clientX, touch.clientY);
+    const targetRow = target?.closest(DRAG_ROW_SELECTOR);
+    for (const r of setListSongsEl.querySelectorAll(DRAG_ROW_SELECTOR)) {
+      r.classList.remove('ls-setlist-row--over');
+    }
+    if (targetRow) targetRow.classList.add('ls-setlist-row--over');
+  }, { passive: false });
+  row.addEventListener('touchend', (e) => {
+    if (dragSrcIndex === null) return;
+    row.classList.remove('ls-setlist-row--dragging');
+    const touch = e.changedTouches[0];
+    const target = document.elementFromPoint(touch.clientX, touch.clientY);
+    const targetRow = target?.closest(DRAG_ROW_SELECTOR);
+    const targetIndex = targetRow ? parseInt(targetRow.dataset.index) : null;
+    for (const r of setListSongsEl.querySelectorAll(DRAG_ROW_SELECTOR)) {
+      r.classList.remove('ls-setlist-row--over');
+    }
+    if (targetIndex !== null && targetIndex !== dragSrcIndex) {
+      const [moved] = sl.songs.splice(dragSrcIndex, 1);
+      sl.songs.splice(targetIndex, 0, moved);
+      saveSetLists(setLists);
+      renderSetListEditor();
+    }
+    dragSrcIndex = null;
   });
 }
 
@@ -491,7 +612,13 @@ export function init() {
         <div class="ls-list" id="ls-list"></div>
       </aside>
       <main class="ls-viewer">
-        <div class="ls-viewer__empty" id="ls-viewer-empty">Select a lead sheet</div>
+        <button class="ls-toggle" id="ls-toggle" title="Toggle sidebar">☰</button>
+        <div class="ls-viewer__empty" id="ls-viewer-empty">
+          <div class="ls-empty-content">
+            <span>Select a lead sheet</span>
+            <button class="ls-download-btn" id="ls-download-btn">Download for Offline</button>
+          </div>
+        </div>
 
         <!-- Sheet panel -->
         <div id="ls-sheet-panel" hidden>
@@ -509,7 +636,10 @@ export function init() {
             <input class="ls-setlist-name" id="ls-setlist-name" type="text">
             <button class="ls-setlist-delete-btn" id="ls-setlist-delete">Delete</button>
           </div>
-          <p class="ls-setlist-hint">Click a song in the library to add it to this set list.</p>
+          <div class="ls-setlist-toolbar">
+            <p class="ls-setlist-hint">Click a song in the library to add it.</p>
+            <button class="ls-setlist-break-btn" id="ls-setlist-break">+ Set Break</button>
+          </div>
           <div class="ls-setlist-songs" id="ls-setlist-songs"></div>
         </div>
       </main>
@@ -528,6 +658,13 @@ export function init() {
   setListNameEl  = panel.querySelector('#ls-setlist-name');
   setListSongsEl = panel.querySelector('#ls-setlist-songs');
   searchEl       = panel.querySelector('.ls-search__input');
+  sidebarEl      = panel.querySelector('.ls-sidebar');
+  toggleBtn      = panel.querySelector('#ls-toggle');
+
+  // Sidebar toggle
+  toggleBtn.addEventListener('click', () => {
+    sidebarEl.classList.toggle('ls-sidebar--hidden');
+  });
 
   searchEl.addEventListener('input', () => applyFilter());
 
@@ -555,6 +692,14 @@ export function init() {
 
   panel.querySelector('#ls-setlist-close').addEventListener('click', closeSetList);
 
+  panel.querySelector('#ls-setlist-break').addEventListener('click', () => {
+    const sl = getSetList(activeSetListId);
+    if (!sl) return;
+    sl.songs.push('__break__');
+    saveSetLists(setLists);
+    renderSetListEditor();
+  });
+
   panel.querySelector('#ls-setlist-delete').addEventListener('click', () => {
     setLists = setLists.filter(sl => sl.id !== activeSetListId);
     saveSetLists(setLists);
@@ -571,6 +716,50 @@ export function init() {
     else if (e.key === 'ArrowLeft') navigate(-1);
   });
 
+  // Offline download button
+  const downloadBtn = panel.querySelector('#ls-download-btn');
+  initOfflineDownload(downloadBtn);
+
   applyFilter();
   renderSetListsSidebar();
+}
+
+// ── Offline download ────────────────────────────────────────────────
+function initOfflineDownload(btn) {
+  if (!('serviceWorker' in navigator)) {
+    btn.style.display = 'none';
+    return;
+  }
+
+  const allUrls = sheets.map(s => s.url);
+
+  // Check current cache status on load
+  navigator.serviceWorker.ready.then(() => {
+    navigator.serviceWorker.controller?.postMessage({ type: 'CHECK_CACHE', urls: allUrls });
+  });
+
+  navigator.serviceWorker.addEventListener('message', (e) => {
+    if (e.data.type === 'CACHE_STATUS') {
+      if (e.data.cachedCount === e.data.total) {
+        btn.textContent = 'Available Offline';
+        btn.classList.add('ls-download-btn--done');
+        btn.disabled = true;
+      }
+    }
+    if (e.data.type === 'CACHE_PROGRESS') {
+      const pct = Math.round((e.data.done / e.data.total) * 100);
+      btn.textContent = `Downloading... ${pct}%`;
+    }
+    if (e.data.type === 'CACHE_DONE') {
+      btn.textContent = 'Available Offline';
+      btn.classList.add('ls-download-btn--done');
+      btn.disabled = true;
+    }
+  });
+
+  btn.addEventListener('click', () => {
+    btn.disabled = true;
+    btn.textContent = 'Downloading... 0%';
+    navigator.serviceWorker.controller?.postMessage({ type: 'CACHE_LEADSHEETS', urls: allUrls });
+  });
 }
