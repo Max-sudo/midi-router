@@ -634,6 +634,126 @@ function navigate(dir) {
   applyFilter();
 }
 
+// ── Set list play mode ───────────────────────────────────────────────
+let playState = null; // { slId, songs: [{name, urls}], index, drawerOpen }
+
+function getPlaySongs(sl) {
+  // Build ordered list of songs (with break markers) from set list
+  const items = [];
+  let setNum = 1;
+  for (const entry of sl.songs) {
+    if (entry === '__break__') {
+      setNum++;
+      items.push({ type: 'break', label: `Set ${setNum}` });
+    } else {
+      const sheet = sheets.find(s => s.name === displayName(entry) || s.origTitles?.includes(entry));
+      if (sheet) {
+        items.push({ type: 'song', name: sheet.name, urls: sheet.urls });
+      }
+    }
+  }
+  return items;
+}
+
+function startPlayMode(slId) {
+  const sl = getSetList(slId);
+  if (!sl || !sl.songs.length) return;
+
+  const items = getPlaySongs(sl);
+  const songItems = items.filter(it => it.type === 'song');
+  if (!songItems.length) return;
+
+  playState = { slId, items, songItems, index: 0, drawerOpen: false };
+
+  // Hide everything else
+  sheetPanel.hidden = true;
+  setListPanel.hidden = true;
+  viewerEmpty.hidden = true;
+  sidebarEl.classList.add('ls-sidebar--hidden');
+
+  const playPanel = document.querySelector('#ls-play-panel');
+  playPanel.hidden = false;
+
+  renderPlayView();
+}
+
+function stopPlayMode() {
+  playState = null;
+  const playPanel = document.querySelector('#ls-play-panel');
+  playPanel.hidden = true;
+  // Return to set list editor
+  openSetList(activeSetListId);
+  sidebarEl.classList.remove('ls-sidebar--hidden');
+}
+
+function renderPlayView() {
+  if (!playState) return;
+
+  const song = playState.songItems[playState.index];
+  const titleEl = document.querySelector('#ls-play-title');
+  const posEl = document.querySelector('#ls-play-pos');
+  const pagesEl = document.querySelector('#ls-play-pages');
+
+  titleEl.textContent = song.name;
+  posEl.textContent = `${playState.index + 1} / ${playState.songItems.length}`;
+
+  pagesEl.innerHTML = '';
+  for (const url of song.urls) {
+    const img = document.createElement('img');
+    img.className = 'ls-viewer__img';
+    img.src = url;
+    img.alt = song.name;
+    pagesEl.appendChild(img);
+  }
+
+  // Update drawer highlight if open
+  if (playState.drawerOpen) renderPlayDrawer();
+}
+
+function renderPlayDrawer() {
+  const listEl = document.querySelector('#ls-play-drawer-list');
+  listEl.innerHTML = '';
+
+  let songIdx = 0;
+  for (const item of playState.items) {
+    if (item.type === 'break') {
+      const breakEl = document.createElement('div');
+      breakEl.className = 'ls-play-drawer__break';
+      breakEl.textContent = item.label;
+      listEl.appendChild(breakEl);
+    } else {
+      const idx = songIdx;
+      const row = document.createElement('div');
+      row.className = 'ls-play-drawer__item';
+      if (idx === playState.index) row.classList.add('ls-play-drawer__item--active');
+      row.textContent = item.name;
+      row.addEventListener('click', () => {
+        playState.index = idx;
+        togglePlayDrawer(false);
+        renderPlayView();
+      });
+      listEl.appendChild(row);
+      songIdx++;
+    }
+  }
+}
+
+function togglePlayDrawer(force) {
+  const drawer = document.querySelector('#ls-play-drawer');
+  const open = force !== undefined ? force : !playState.drawerOpen;
+  playState.drawerOpen = open;
+  drawer.hidden = !open;
+  if (open) renderPlayDrawer();
+}
+
+function playNavigate(dir) {
+  if (!playState) return;
+  const next = playState.index + dir;
+  if (next < 0 || next >= playState.songItems.length) return;
+  playState.index = next;
+  renderPlayView();
+}
+
 // ── Init ───────────────────────────────────────────────────────────
 export function init() {
   const panel = $('#leadsheets-panel');
@@ -693,6 +813,7 @@ export function init() {
           <div class="ls-setlist-editor-header">
             <button class="ls-setlist-close-btn" id="ls-setlist-close">← Library</button>
             <input class="ls-setlist-name" id="ls-setlist-name" type="text">
+            <button class="ls-setlist-play-btn" id="ls-setlist-play">Play</button>
             <button class="ls-setlist-delete-btn" id="ls-setlist-delete">Delete</button>
           </div>
           <div class="ls-setlist-toolbar">
@@ -700,6 +821,19 @@ export function init() {
             <button class="ls-setlist-break-btn" id="ls-setlist-break">+ Set Break</button>
           </div>
           <div class="ls-setlist-songs" id="ls-setlist-songs"></div>
+        </div>
+
+        <!-- Set list play mode -->
+        <div id="ls-play-panel" hidden>
+          <div class="ls-play-header" id="ls-play-header">
+            <button class="ls-play-back-btn" id="ls-play-back">← Set List</button>
+            <span class="ls-play-title" id="ls-play-title"></span>
+            <span class="ls-play-pos" id="ls-play-pos"></span>
+          </div>
+          <div class="ls-play-pages" id="ls-play-pages"></div>
+          <div class="ls-play-drawer" id="ls-play-drawer" hidden>
+            <div class="ls-play-drawer__list" id="ls-play-drawer-list"></div>
+          </div>
         </div>
       </main>
     </div>
@@ -773,10 +907,55 @@ export function init() {
     renderSetListsSidebar();
   });
 
+  // Play mode
+  panel.querySelector('#ls-setlist-play').addEventListener('click', () => {
+    startPlayMode(activeSetListId);
+  });
+
+  panel.querySelector('#ls-play-back').addEventListener('click', stopPlayMode);
+
+  // Tap header to toggle drawer
+  panel.querySelector('#ls-play-title').addEventListener('click', () => {
+    if (playState) togglePlayDrawer();
+  });
+  panel.querySelector('#ls-play-pos').addEventListener('click', () => {
+    if (playState) togglePlayDrawer();
+  });
+
+  // Swipe on play pages
+  const playPages = panel.querySelector('#ls-play-pages');
+  let touchStartX = 0;
+  let touchStartY = 0;
+  playPages.addEventListener('touchstart', (e) => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+  playPages.addEventListener('touchend', (e) => {
+    if (!playState) return;
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    // Only trigger on horizontal swipes (not vertical scrolling)
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      if (dx < 0) playNavigate(1);  // swipe left = next
+      else playNavigate(-1);         // swipe right = prev
+    }
+  }, { passive: true });
+
+  // Tap play pages to toggle drawer
+  playPages.addEventListener('click', () => {
+    if (playState) togglePlayDrawer();
+  });
+
   document.addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-    if (e.key === 'ArrowRight') navigate(1);
-    else if (e.key === 'ArrowLeft') navigate(-1);
+    if (playState) {
+      if (e.key === 'ArrowRight') playNavigate(1);
+      else if (e.key === 'ArrowLeft') playNavigate(-1);
+      else if (e.key === 'Escape') stopPlayMode();
+    } else {
+      if (e.key === 'ArrowRight') navigate(1);
+      else if (e.key === 'ArrowLeft') navigate(-1);
+    }
   });
 
   // Rename mode
