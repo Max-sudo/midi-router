@@ -57,14 +57,26 @@
 /* ── Body ────────────────────────────────────────────────────────── */
 
 .take5-body {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
   background: #0a0a10;
   padding: 4px 0;
 }
 
-/* ── Row ─────────────────────────────────────────────────────────── */
+/* ── Two-column layout ───────────────────────────────────────────── */
+
+.take5-columns {
+  display: flex;
+}
+
+.take5-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.take5-col--right {
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* ── Row (horizontal group of sections within a column) ──────────── */
 
 .take5-row {
   display: flex;
@@ -76,20 +88,13 @@
   border-bottom: none;
 }
 
-/* ── Vertical stack (e.g. Effects/Reverb/FilterEnv/AmpEnv) ───────── */
-
-.take5-stack {
-  display: flex;
-  flex-direction: column;
-  border-left: 1px solid rgba(255, 255, 255, 0.04);
-}
-
-.take5-stack .take5-section {
+/* Right column sections stack vertically */
+.take5-col--right > .take5-section {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   border-right: none;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
 }
 
-.take5-stack .take5-section:last-child {
+.take5-col--right > .take5-section:last-child {
   border-bottom: none;
 }
 

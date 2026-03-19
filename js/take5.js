@@ -6,31 +6,95 @@ import { bus, $ } from './utils.js';
    Each entry: { cc, label, type, section }
    type: 'knob' (continuous 0-127), 'switch' (on/off), 'select' (discrete)
 */
-const SECTIONS = [
-  // Row 1 left: LFOs
+// Left column rows, right column rows — rendered as two side-by-side stacks
+const LEFT_SECTIONS = [
+  // Row: LFO 1 | LFO 2
+  [
+    {
+      name: 'LFO 1', color: '#5e5ce6',
+      controls: [
+        { cc: 75, label: 'Rate',     type: 'knob' },
+        { cc: 76, label: 'Amount',   type: 'knob' },
+        { cc: 77, label: 'Shape',    type: 'select' },
+        { cc: 78, label: 'Sync',     type: 'switch' },
+        { cc: 79, label: 'Reset',    type: 'switch' },
+      ]
+    },
+    {
+      name: 'LFO 2', color: '#8e8ce6',
+      controls: [
+        { cc: 80, label: 'Rate',     type: 'knob' },
+        { cc: 81, label: 'Amount',   type: 'knob' },
+        { cc: 82, label: 'Shape',    type: 'select' },
+        { cc: 83, label: 'Sync',     type: 'switch' },
+        { cc: 84, label: 'Reset',    type: 'switch' },
+      ]
+    },
+  ],
+  // Row: OSC 1 | OSC 2
+  [
+    {
+      name: 'OSC 1', color: '#00f0ff',
+      controls: [
+        { cc: 8,  label: 'Octave',   type: 'select' },
+        { cc: 9,  label: 'Fine',     type: 'knob' },
+        { cc: 10, label: 'Shape',    type: 'knob' },
+        { cc: 40, label: 'Level',    type: 'knob' },
+        { cc: 65, label: 'Glide',    type: 'knob' },
+        { cc: 87, label: 'Key Trk',  type: 'switch' },
+      ]
+    },
+    {
+      name: 'OSC 2', color: '#64d2ff',
+      controls: [
+        { cc: 13, label: 'Octave',   type: 'select' },
+        { cc: 14, label: 'Fine',     type: 'knob' },
+        { cc: 15, label: 'Shape',    type: 'knob' },
+        { cc: 41, label: 'Level',    type: 'knob' },
+        { cc: 66, label: 'Glide',    type: 'knob' },
+        { cc: 88, label: 'Key Trk',  type: 'switch' },
+      ]
+    },
+  ],
+  // Row: PERFORM
+  [
+    {
+      name: 'PERFORM', color: '#64d2ff',
+      controls: [
+        { cc: 68, label: 'Glide',    type: 'switch' },
+        { cc: 70, label: 'Unison',   type: 'switch' },
+        { cc: 71, label: 'Uni Mode', type: 'select' },
+        { cc: 72, label: 'Uni Dtune',type: 'knob' },
+        { cc: 85, label: 'PB Up',    type: 'knob' },
+        { cc: 86, label: 'PB Down',  type: 'knob' },
+      ]
+    },
+  ],
+  // Row: MIXER | FILTER
+  [
+    {
+      name: 'MIXER', color: '#30d158',
+      controls: [
+        { cc: 42, label: 'Sub',      type: 'knob' },
+        { cc: 43, label: 'Noise',    type: 'knob' },
+        { cc: 39, label: 'Sync',     type: 'switch' },
+      ]
+    },
+    {
+      name: 'FILTER', color: '#ff9f0a',
+      controls: [
+        { cc: 33, label: 'Cutoff',   type: 'knob', size: 'large' },
+        { cc: 34, label: 'Resonance',type: 'knob' },
+        { cc: 35, label: 'Drive',    type: 'knob' },
+        { cc: 36, label: 'Key Trk',  type: 'knob' },
+      ]
+    },
+  ],
+];
+
+const RIGHT_SECTIONS = [
   {
-    name: 'LFO 1', color: '#5e5ce6', row: 1,
-    controls: [
-      { cc: 75, label: 'Rate',     type: 'knob' },
-      { cc: 76, label: 'Amount',   type: 'knob' },
-      { cc: 77, label: 'Shape',    type: 'select' },
-      { cc: 78, label: 'Sync',     type: 'switch' },
-      { cc: 79, label: 'Reset',    type: 'switch' },
-    ]
-  },
-  {
-    name: 'LFO 2', color: '#8e8ce6', row: 1,
-    controls: [
-      { cc: 80, label: 'Rate',     type: 'knob' },
-      { cc: 81, label: 'Amount',   type: 'knob' },
-      { cc: 82, label: 'Shape',    type: 'select' },
-      { cc: 83, label: 'Sync',     type: 'switch' },
-      { cc: 84, label: 'Reset',    type: 'switch' },
-    ]
-  },
-  // Row 1 right: Effects/Reverb/FilterEnv/AmpEnv stacked vertically
-  {
-    name: 'EFFECTS', color: '#ffd60a', row: 1, stack: 'right',
+    name: 'EFFECTS', color: '#ffd60a',
     controls: [
       { cc: 16, label: 'On/Off',   type: 'switch' },
       { cc: 17, label: 'Type',     type: 'select' },
@@ -42,7 +106,7 @@ const SECTIONS = [
     ]
   },
   {
-    name: 'REVERB', color: '#ff9f0a', row: 1, stack: 'right',
+    name: 'REVERB', color: '#ff9f0a',
     controls: [
       { cc: 23, label: 'On/Off',   type: 'switch' },
       { cc: 24, label: 'Mix',      type: 'knob' },
@@ -53,7 +117,7 @@ const SECTIONS = [
     ]
   },
   {
-    name: 'FILTER ENV', color: '#bf5af2', row: 1, stack: 'right',
+    name: 'FILTER ENV', color: '#bf5af2',
     controls: [
       { cc: 45, label: 'Delay',    type: 'knob' },
       { cc: 46, label: 'Attack',   type: 'knob' },
@@ -65,7 +129,7 @@ const SECTIONS = [
     ]
   },
   {
-    name: 'AMP ENV', color: '#ff2d55', row: 1, stack: 'right',
+    name: 'AMP ENV', color: '#ff2d55',
     controls: [
       { cc: 52, label: 'Delay',    type: 'knob' },
       { cc: 53, label: 'Attack',   type: 'knob' },
@@ -76,59 +140,10 @@ const SECTIONS = [
       { cc: 58, label: 'Velocity', type: 'knob' },
     ]
   },
-  // Row 2: OSCs, Mixer, Filter
-  {
-    name: 'OSC 1', color: '#00f0ff', row: 2,
-    controls: [
-      { cc: 8,  label: 'Octave',   type: 'select' },
-      { cc: 9,  label: 'Fine',     type: 'knob' },
-      { cc: 10, label: 'Shape',    type: 'knob' },
-      { cc: 40, label: 'Level',    type: 'knob' },
-      { cc: 65, label: 'Glide',    type: 'knob' },
-      { cc: 87, label: 'Key Trk',  type: 'switch' },
-    ]
-  },
-  {
-    name: 'OSC 2', color: '#64d2ff', row: 2,
-    controls: [
-      { cc: 13, label: 'Octave',   type: 'select' },
-      { cc: 14, label: 'Fine',     type: 'knob' },
-      { cc: 15, label: 'Shape',    type: 'knob' },
-      { cc: 41, label: 'Level',    type: 'knob' },
-      { cc: 66, label: 'Glide',    type: 'knob' },
-      { cc: 88, label: 'Key Trk',  type: 'switch' },
-    ]
-  },
-  {
-    name: 'MIXER', color: '#30d158', row: 2,
-    controls: [
-      { cc: 42, label: 'Sub',      type: 'knob' },
-      { cc: 43, label: 'Noise',    type: 'knob' },
-      { cc: 39, label: 'Sync',     type: 'switch' },
-    ]
-  },
-  {
-    name: 'FILTER', color: '#ff9f0a', row: 2,
-    controls: [
-      { cc: 33, label: 'Cutoff',   type: 'knob', size: 'large' },
-      { cc: 34, label: 'Resonance',type: 'knob' },
-      { cc: 35, label: 'Drive',    type: 'knob' },
-      { cc: 36, label: 'Key Trk',  type: 'knob' },
-    ]
-  },
-  // Row 3: Perform
-  {
-    name: 'PERFORM', color: '#64d2ff', row: 3,
-    controls: [
-      { cc: 68, label: 'Glide',    type: 'switch' },
-      { cc: 70, label: 'Unison',   type: 'switch' },
-      { cc: 71, label: 'Uni Mode', type: 'select' },
-      { cc: 72, label: 'Uni Dtune',type: 'knob' },
-      { cc: 85, label: 'PB Up',    type: 'knob' },
-      { cc: 86, label: 'PB Down',  type: 'knob' },
-    ]
-  },
 ];
+
+// Flat list for iteration (used by getTake5Preset, CC lookup, etc.)
+const SECTIONS = [...LEFT_SECTIONS.flat(), ...RIGHT_SECTIONS];
 
 /* ── State ────────────────────────────────────────────────────────── */
 let panelEl = null;
@@ -165,14 +180,6 @@ function buildPanel() {
   body.className = 'take5-body';
   body.id = 'take5-body';
   body.hidden = true;
-
-  // Sections grouped by row
-  const rows = new Map();
-  for (const section of SECTIONS) {
-    const r = section.row || 1;
-    if (!rows.has(r)) rows.set(r, []);
-    rows.get(r).push(section);
-  }
 
   function buildSectionEl(section) {
     const sectionEl = document.createElement('div');
@@ -220,29 +227,32 @@ function buildPanel() {
     return sectionEl;
   }
 
-  for (const [, rowSections] of [...rows.entries()].sort((a, b) => a[0] - b[0])) {
+  // Two-column layout: left stack (rows of sections) | right stack (single sections)
+  const layout = document.createElement('div');
+  layout.className = 'take5-columns';
+
+  // Left column: each entry is a row of sections
+  const leftCol = document.createElement('div');
+  leftCol.className = 'take5-col take5-col--left';
+  for (const rowSections of LEFT_SECTIONS) {
     const rowEl = document.createElement('div');
     rowEl.className = 'take5-row';
-
-    // Separate normal sections from stacked sections
-    const normal = rowSections.filter(s => !s.stack);
-    const stacked = rowSections.filter(s => s.stack);
-
-    for (const section of normal) {
+    for (const section of rowSections) {
       rowEl.appendChild(buildSectionEl(section));
     }
-
-    if (stacked.length) {
-      const stackEl = document.createElement('div');
-      stackEl.className = 'take5-stack';
-      for (const section of stacked) {
-        stackEl.appendChild(buildSectionEl(section));
-      }
-      rowEl.appendChild(stackEl);
-    }
-
-    body.appendChild(rowEl);
+    leftCol.appendChild(rowEl);
   }
+
+  // Right column: each section is its own row
+  const rightCol = document.createElement('div');
+  rightCol.className = 'take5-col take5-col--right';
+  for (const section of RIGHT_SECTIONS) {
+    rightCol.appendChild(buildSectionEl(section));
+  }
+
+  layout.appendChild(leftCol);
+  layout.appendChild(rightCol);
+  body.appendChild(layout);
 
   panelEl.appendChild(body);
 
