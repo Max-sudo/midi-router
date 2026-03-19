@@ -58,10 +58,22 @@
 
 .take5-body {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 0;
   background: #0a0a10;
   padding: 4px 0;
+}
+
+/* ── Row ─────────────────────────────────────────────────────────── */
+
+.take5-row {
+  display: flex;
+  flex-wrap: wrap;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.take5-row:last-child {
+  border-bottom: none;
 }
 
 /* ── Section ─────────────────────────────────────────────────────── */

@@ -7,71 +7,9 @@ import { bus, $ } from './utils.js';
    type: 'knob' (continuous 0-127), 'switch' (on/off), 'select' (discrete)
 */
 const SECTIONS = [
+  // Row 1: LFOs, Effects, Reverb
   {
-    name: 'OSC 1', color: '#00f0ff',
-    controls: [
-      { cc: 8,  label: 'Octave',   type: 'select' },
-      { cc: 9,  label: 'Fine',     type: 'knob' },
-      { cc: 10, label: 'Shape',    type: 'knob' },
-      { cc: 40, label: 'Level',    type: 'knob' },
-      { cc: 65, label: 'Glide',    type: 'knob' },
-      { cc: 87, label: 'Key Trk',  type: 'switch' },
-    ]
-  },
-  {
-    name: 'OSC 2', color: '#64d2ff',
-    controls: [
-      { cc: 13, label: 'Octave',   type: 'select' },
-      { cc: 14, label: 'Fine',     type: 'knob' },
-      { cc: 15, label: 'Shape',    type: 'knob' },
-      { cc: 41, label: 'Level',    type: 'knob' },
-      { cc: 66, label: 'Glide',    type: 'knob' },
-      { cc: 88, label: 'Key Trk',  type: 'switch' },
-    ]
-  },
-  {
-    name: 'MIXER', color: '#30d158',
-    controls: [
-      { cc: 42, label: 'Sub',      type: 'knob' },
-      { cc: 43, label: 'Noise',    type: 'knob' },
-      { cc: 39, label: 'Sync',     type: 'switch' },
-    ]
-  },
-  {
-    name: 'FILTER', color: '#ff9f0a',
-    controls: [
-      { cc: 33, label: 'Cutoff',   type: 'knob', size: 'large' },
-      { cc: 34, label: 'Resonance',type: 'knob' },
-      { cc: 35, label: 'Drive',    type: 'knob' },
-      { cc: 36, label: 'Key Trk',  type: 'knob' },
-    ]
-  },
-  {
-    name: 'FILTER ENV', color: '#bf5af2',
-    controls: [
-      { cc: 45, label: 'Delay',    type: 'knob' },
-      { cc: 46, label: 'Attack',   type: 'knob' },
-      { cc: 47, label: 'Decay',    type: 'knob' },
-      { cc: 48, label: 'Sustain',  type: 'knob' },
-      { cc: 49, label: 'Release',  type: 'knob' },
-      { cc: 50, label: 'Amount',   type: 'knob' },
-      { cc: 51, label: 'Velocity', type: 'knob' },
-    ]
-  },
-  {
-    name: 'AMP ENV', color: '#ff2d55',
-    controls: [
-      { cc: 52, label: 'Delay',    type: 'knob' },
-      { cc: 53, label: 'Attack',   type: 'knob' },
-      { cc: 54, label: 'Decay',    type: 'knob' },
-      { cc: 55, label: 'Sustain',  type: 'knob' },
-      { cc: 56, label: 'Release',  type: 'knob' },
-      { cc: 57, label: 'Amount',   type: 'knob' },
-      { cc: 58, label: 'Velocity', type: 'knob' },
-    ]
-  },
-  {
-    name: 'LFO 1', color: '#5e5ce6',
+    name: 'LFO 1', color: '#5e5ce6', row: 1,
     controls: [
       { cc: 75, label: 'Rate',     type: 'knob' },
       { cc: 76, label: 'Amount',   type: 'knob' },
@@ -81,7 +19,7 @@ const SECTIONS = [
     ]
   },
   {
-    name: 'LFO 2', color: '#8e8ce6',
+    name: 'LFO 2', color: '#8e8ce6', row: 1,
     controls: [
       { cc: 80, label: 'Rate',     type: 'knob' },
       { cc: 81, label: 'Amount',   type: 'knob' },
@@ -91,7 +29,7 @@ const SECTIONS = [
     ]
   },
   {
-    name: 'EFFECTS', color: '#ffd60a',
+    name: 'EFFECTS', color: '#ffd60a', row: 1,
     controls: [
       { cc: 16, label: 'On/Off',   type: 'switch' },
       { cc: 17, label: 'Type',     type: 'select' },
@@ -103,7 +41,7 @@ const SECTIONS = [
     ]
   },
   {
-    name: 'REVERB', color: '#ff9f0a',
+    name: 'REVERB', color: '#ff9f0a', row: 1,
     controls: [
       { cc: 23, label: 'On/Off',   type: 'switch' },
       { cc: 24, label: 'Mix',      type: 'knob' },
@@ -113,8 +51,73 @@ const SECTIONS = [
       { cc: 28, label: 'Tone',     type: 'knob' },
     ]
   },
+  // Row 2: OSCs, Mixer, Filter, Envelopes
   {
-    name: 'PERFORM', color: '#64d2ff',
+    name: 'OSC 1', color: '#00f0ff', row: 2,
+    controls: [
+      { cc: 8,  label: 'Octave',   type: 'select' },
+      { cc: 9,  label: 'Fine',     type: 'knob' },
+      { cc: 10, label: 'Shape',    type: 'knob' },
+      { cc: 40, label: 'Level',    type: 'knob' },
+      { cc: 65, label: 'Glide',    type: 'knob' },
+      { cc: 87, label: 'Key Trk',  type: 'switch' },
+    ]
+  },
+  {
+    name: 'OSC 2', color: '#64d2ff', row: 2,
+    controls: [
+      { cc: 13, label: 'Octave',   type: 'select' },
+      { cc: 14, label: 'Fine',     type: 'knob' },
+      { cc: 15, label: 'Shape',    type: 'knob' },
+      { cc: 41, label: 'Level',    type: 'knob' },
+      { cc: 66, label: 'Glide',    type: 'knob' },
+      { cc: 88, label: 'Key Trk',  type: 'switch' },
+    ]
+  },
+  {
+    name: 'MIXER', color: '#30d158', row: 2,
+    controls: [
+      { cc: 42, label: 'Sub',      type: 'knob' },
+      { cc: 43, label: 'Noise',    type: 'knob' },
+      { cc: 39, label: 'Sync',     type: 'switch' },
+    ]
+  },
+  {
+    name: 'FILTER', color: '#ff9f0a', row: 2,
+    controls: [
+      { cc: 33, label: 'Cutoff',   type: 'knob', size: 'large' },
+      { cc: 34, label: 'Resonance',type: 'knob' },
+      { cc: 35, label: 'Drive',    type: 'knob' },
+      { cc: 36, label: 'Key Trk',  type: 'knob' },
+    ]
+  },
+  {
+    name: 'FILTER ENV', color: '#bf5af2', row: 2,
+    controls: [
+      { cc: 45, label: 'Delay',    type: 'knob' },
+      { cc: 46, label: 'Attack',   type: 'knob' },
+      { cc: 47, label: 'Decay',    type: 'knob' },
+      { cc: 48, label: 'Sustain',  type: 'knob' },
+      { cc: 49, label: 'Release',  type: 'knob' },
+      { cc: 50, label: 'Amount',   type: 'knob' },
+      { cc: 51, label: 'Velocity', type: 'knob' },
+    ]
+  },
+  {
+    name: 'AMP ENV', color: '#ff2d55', row: 2,
+    controls: [
+      { cc: 52, label: 'Delay',    type: 'knob' },
+      { cc: 53, label: 'Attack',   type: 'knob' },
+      { cc: 54, label: 'Decay',    type: 'knob' },
+      { cc: 55, label: 'Sustain',  type: 'knob' },
+      { cc: 56, label: 'Release',  type: 'knob' },
+      { cc: 57, label: 'Amount',   type: 'knob' },
+      { cc: 58, label: 'Velocity', type: 'knob' },
+    ]
+  },
+  // Row 3: Perform
+  {
+    name: 'PERFORM', color: '#64d2ff', row: 3,
     controls: [
       { cc: 68, label: 'Glide',    type: 'switch' },
       { cc: 70, label: 'Unison',   type: 'switch' },
@@ -162,53 +165,67 @@ function buildPanel() {
   body.id = 'take5-body';
   body.hidden = true;
 
-  // Sections
+  // Sections grouped by row
+  const rows = new Map();
   for (const section of SECTIONS) {
-    const sectionEl = document.createElement('div');
-    sectionEl.className = 'take5-section';
+    const r = section.row || 1;
+    if (!rows.has(r)) rows.set(r, []);
+    rows.get(r).push(section);
+  }
 
-    const sectionHead = document.createElement('div');
-    sectionHead.className = 'take5-section-name';
-    sectionHead.style.color = section.color;
-    sectionHead.textContent = section.name;
-    sectionEl.appendChild(sectionHead);
+  for (const [, rowSections] of [...rows.entries()].sort((a, b) => a[0] - b[0])) {
+    const rowEl = document.createElement('div');
+    rowEl.className = 'take5-row';
 
-    const controlsRow = document.createElement('div');
-    controlsRow.className = 'take5-controls';
+    for (const section of rowSections) {
+      const sectionEl = document.createElement('div');
+      sectionEl.className = 'take5-section';
 
-    for (const ctrl of section.controls) {
-      const controlEl = document.createElement('div');
-      controlEl.className = 'take5-control';
-      controlEl.dataset.cc = ctrl.cc;
+      const sectionHead = document.createElement('div');
+      sectionHead.className = 'take5-section-name';
+      sectionHead.style.color = section.color;
+      sectionHead.textContent = section.name;
+      sectionEl.appendChild(sectionHead);
 
-      if (ctrl.type === 'knob') {
-        const size = ctrl.size === 'large' ? 44 : 32;
-        controlEl.appendChild(createKnobSVG(ctrl.cc, size, section.color));
-      } else if (ctrl.type === 'switch') {
-        controlEl.appendChild(createSwitch(ctrl.cc, section.color));
-      } else if (ctrl.type === 'select') {
-        controlEl.appendChild(createKnobSVG(ctrl.cc, 28, section.color));
+      const controlsRow = document.createElement('div');
+      controlsRow.className = 'take5-controls';
+
+      for (const ctrl of section.controls) {
+        const controlEl = document.createElement('div');
+        controlEl.className = 'take5-control';
+        controlEl.dataset.cc = ctrl.cc;
+
+        if (ctrl.type === 'knob') {
+          const size = ctrl.size === 'large' ? 44 : 32;
+          controlEl.appendChild(createKnobSVG(ctrl.cc, size, section.color));
+        } else if (ctrl.type === 'switch') {
+          controlEl.appendChild(createSwitch(ctrl.cc, section.color));
+        } else if (ctrl.type === 'select') {
+          controlEl.appendChild(createKnobSVG(ctrl.cc, 28, section.color));
+        }
+
+        const label = document.createElement('span');
+        label.className = 'take5-label';
+        label.textContent = ctrl.label;
+        controlEl.appendChild(label);
+
+        const value = document.createElement('span');
+        value.className = 'take5-value';
+        value.id = `take5-val-${ctrl.cc}`;
+        value.textContent = '0';
+        controlEl.appendChild(value);
+
+        controlsRow.appendChild(controlEl);
+
+        // Initialize state
+        ccValues.set(ctrl.cc, 0);
       }
 
-      const label = document.createElement('span');
-      label.className = 'take5-label';
-      label.textContent = ctrl.label;
-      controlEl.appendChild(label);
-
-      const value = document.createElement('span');
-      value.className = 'take5-value';
-      value.id = `take5-val-${ctrl.cc}`;
-      value.textContent = '0';
-      controlEl.appendChild(value);
-
-      controlsRow.appendChild(controlEl);
-
-      // Initialize state
-      ccValues.set(ctrl.cc, 0);
+      sectionEl.appendChild(controlsRow);
+      rowEl.appendChild(sectionEl);
     }
 
-    sectionEl.appendChild(controlsRow);
-    body.appendChild(sectionEl);
+    body.appendChild(rowEl);
   }
 
   panelEl.appendChild(body);
