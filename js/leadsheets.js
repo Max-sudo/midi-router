@@ -68,7 +68,8 @@ const FILES = [
   "I_Love_Paris.png",
   "I_Love_You.png",
   "I_Mean_You.png",
-  "I_Remember_Clifford.png",
+  "I_Remember_Clifford_p1.png",
+  "I_Remember_Clifford_p2.png",
   "I_Wish_I_Knew_How_It_Would_Feel_To_Be_Free.png",
   "In_A_Mellow_Tone.png",
   "In_A_Sentimental_Mood.png",
@@ -77,7 +78,8 @@ const FILES = [
   "Joy_Spring.png",
   "Like_Someone_In_Love.png",
   "Lush_Life.png",
-  "Misty.png",
+  "Misty_p1.png",
+  "Misty_p2.png",
   "My_Favorite_Things.png",
   "My_Foolish_Heart.png",
   "My_Funny_Valentine.png",
@@ -125,7 +127,7 @@ const TAG_LABELS = { ballad: 'Ballad', mid: 'Mid', up: 'Up', learned: 'Learned' 
 // Raw flat list — one entry per file
 const rawSheets = FILES
   .map(f => ({
-    title: f.replace(/\.png$/i, '').replace(/_/g, ' '),
+    title: f.replace(/\.png$/i, '').replace(/_p\d+$/, '').replace(/_/g, ' '),
     url: `assets/leadsheets/${encodeURIComponent(f)}`,
   }))
   .sort((a, b) => a.title.localeCompare(b.title));
