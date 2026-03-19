@@ -76,6 +76,23 @@
   border-bottom: none;
 }
 
+/* ── Vertical stack (e.g. Effects/Reverb/FilterEnv/AmpEnv) ───────── */
+
+.take5-stack {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.take5-stack .take5-section {
+  border-right: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.take5-stack .take5-section:last-child {
+  border-bottom: none;
+}
+
 /* ── Section ─────────────────────────────────────────────────────── */
 
 .take5-section {
