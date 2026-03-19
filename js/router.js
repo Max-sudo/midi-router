@@ -101,9 +101,6 @@ function handleMessage(inputId, data, timestamp) {
   // Flash input LED
   patchbay.flashInputLED(inputId);
 
-  // Emit for keyboard visualizer
-  bus.emit('midi:message', { inputId, data, msgType, channel, timestamp });
-
   for (const route of routes.values()) {
     if (!route.enabled) continue;
     if (route.inputId !== inputId) continue;

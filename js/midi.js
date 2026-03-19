@@ -1,5 +1,5 @@
 // ── Web MIDI API wrapper ───────────────────────────────────────────
-import { bus } from './utils.js';
+import { bus, midiStatusToType, midiChannel } from './utils.js';
 
 let midiAccess = null;
 const inputListeners = new Map(); // inputId → onmidimessage handler
@@ -21,6 +21,7 @@ export async function init() {
     return false;
   }
   midiAccess.onstatechange = handleStateChange;
+  startGlobalListening();
   bus.emit('midi:ready', getDevices());
   return true;
 }
@@ -86,14 +87,15 @@ export function listenToInput(inputId, callback) {
   const handler = (event) => {
     callback(inputId, event.data, event.timeStamp);
   };
-  input.onmidimessage = handler;
+  input.addEventListener('midimessage', handler);
   inputListeners.set(inputId, handler);
 }
 
 export function stopListeningToInput(inputId) {
   if (!midiAccess) return;
   const input = midiAccess.inputs.get(inputId);
-  if (input) input.onmidimessage = null;
+  const handler = inputListeners.get(inputId);
+  if (input && handler) input.removeEventListener('midimessage', handler);
   inputListeners.delete(inputId);
 }
 
@@ -110,6 +112,37 @@ export function stopAllListeners() {
   for (const [id] of midiAccess.inputs) {
     stopListeningToInput(id);
   }
+}
+
+// ── Global broadcast — always listens to all inputs ─────────────────
+const globalHandlers = new Map(); // inputId → handler
+
+function startGlobalListening() {
+  if (!midiAccess) return;
+  for (const [id, input] of midiAccess.inputs) {
+    if (globalHandlers.has(id)) continue;
+    const handler = (event) => {
+      const data = event.data;
+      const msgType = midiStatusToType(data[0]);
+      const channel = midiChannel(data[0]);
+      bus.emit('midi:message', { inputId: id, data, msgType, channel, timestamp: event.timeStamp });
+    };
+    input.addEventListener('midimessage', handler);
+    globalHandlers.set(id, handler);
+  }
+}
+
+function refreshGlobalListening() {
+  if (!midiAccess) return;
+  // Remove handlers for disconnected inputs
+  for (const [id, handler] of globalHandlers) {
+    const input = midiAccess.inputs.get(id);
+    if (!input) {
+      globalHandlers.delete(id);
+    }
+  }
+  // Add handlers for new inputs
+  startGlobalListening();
 }
 
 // ── Send MIDI data to an output ────────────────────────────────────
@@ -134,6 +167,8 @@ function handleStateChange(event) {
     state: port.state,     // 'connected' or 'disconnected'
     connection: port.connection,
   });
+  // Pick up new inputs for global listening
+  refreshGlobalListening();
   // Re-emit full device list for UI refresh
   bus.emit('midi:devices-changed', getDevices());
 }
