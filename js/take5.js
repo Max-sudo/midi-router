@@ -56,20 +56,6 @@ const LEFT_SECTIONS = [
       ]
     },
   ],
-  // Row: PERFORM
-  [
-    {
-      name: 'PERFORM', color: '#64d2ff',
-      controls: [
-        { cc: 68, label: 'Glide',    type: 'switch' },
-        { cc: 70, label: 'Unison',   type: 'switch' },
-        { cc: 71, label: 'Uni Mode', type: 'select' },
-        { cc: 72, label: 'Uni Dtune',type: 'knob' },
-        { cc: 85, label: 'PB Up',    type: 'knob' },
-        { cc: 86, label: 'PB Down',  type: 'knob' },
-      ]
-    },
-  ],
   // Row: MIXER | FILTER
   [
     {
@@ -87,6 +73,20 @@ const LEFT_SECTIONS = [
         { cc: 34, label: 'Resonance',type: 'knob' },
         { cc: 35, label: 'Drive',    type: 'knob' },
         { cc: 36, label: 'Key Trk',  type: 'knob' },
+      ]
+    },
+  ],
+  // Row: PERFORM
+  [
+    {
+      name: 'PERFORM', color: '#64d2ff',
+      controls: [
+        { cc: 68, label: 'Glide',    type: 'switch' },
+        { cc: 70, label: 'Unison',   type: 'switch' },
+        { cc: 71, label: 'Uni Mode', type: 'select' },
+        { cc: 72, label: 'Uni Dtune',type: 'knob' },
+        { cc: 85, label: 'PB Up',    type: 'knob' },
+        { cc: 86, label: 'PB Down',  type: 'knob' },
       ]
     },
   ],
