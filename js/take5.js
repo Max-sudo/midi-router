@@ -367,7 +367,7 @@ function createSwitch(cc, color) {
 /* ── Arc math ────────────────────────────────────────────────────── */
 
 function polarToCartesian(cx, cy, r, angleDeg) {
-  const rad = (angleDeg - 90) * Math.PI / 180;
+  const rad = (angleDeg + 90) * Math.PI / 180;
   return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
 }
 
