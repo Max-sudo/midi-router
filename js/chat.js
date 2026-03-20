@@ -39,8 +39,8 @@ function buildUI() {
         <path d="M16 20a2 2 0 012-2h12a2 2 0 012 2v8a2 2 0 01-2 2h-3l-3 3-3-3h-3a2 2 0 01-2-2v-8z" fill="rgba(255,255,255,0.9)"/>
       </svg>
     </div>
-    <h1 class="chat-hero__title">Studio</h1>
-    <p class="chat-hero__subtitle">Your personal creative assistant</p>
+    <h1 class="chat-hero__title">Builder</h1>
+    <p class="chat-hero__subtitle">Tell me what you need and I'll build it.</p>
   `;
 
   // Messages area
@@ -59,7 +59,7 @@ function buildUI() {
   const inputBar = createElement('div', { className: 'chat-input-bar' });
   chatInput = createElement('textarea', {
     className: 'chat-input-bar__input',
-    placeholder: 'Ask me anything...',
+    placeholder: 'Describe a tab or tool to build...',
     rows: 1,
   });
   sendBtn = createElement('button', {

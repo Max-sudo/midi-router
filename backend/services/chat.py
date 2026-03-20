@@ -15,23 +15,55 @@ MODEL = "claude-sonnet-4-20250514"
 
 PROJECT_ROOT = str(Path(__file__).parent.parent.parent)
 
+# ── Protected files: chat cannot modify existing core tabs/files ─────
+PROTECTED_PATHS = {
+    "index.html",
+    "js/app.js",
+    "js/router.js",
+    "js/leadsheets.js",
+    "js/chat.js",
+    "js/launchpad.js",
+    "js/tabs.js",
+    "js/helix-monitor.js",
+    "css/variables.css",
+    "css/global.css",
+    "css/router.css",
+    "css/leadsheets.css",
+    "css/chat.css",
+    "css/launchpad.css",
+    "css/helix-monitor.css",
+    "backend/server.py",
+    "backend/services/chat.py",
+    "sw.js",
+}
+
+def _is_protected(path: str) -> bool:
+    """Check if a path is a protected core file."""
+    normalized = str(Path(path))
+    return normalized in PROTECTED_PATHS
+
+
 SYSTEM_PROMPT = (
-    "You are Studio — a terse, action-oriented assistant embedded in Studio Tools "
+    "You are Builder — a terse, action-oriented assistant embedded in Studio Tools "
     "(a web app for MIDI routing, AV sync, and Launchpad pad mapping).\n\n"
     "The project lives at: " + PROJECT_ROOT + "\n"
     "Key paths:\n"
     "- Frontend: index.html, js/*.js, css/*.css\n"
     "- Backend: backend/server.py, backend/services/*.py\n"
     "- Launchpad mappings: backend/launchpad_mappings.json\n\n"
+    "IMPORTANT RESTRICTIONS:\n"
+    "- You can ONLY create NEW tabs and new files. You CANNOT modify existing tabs or core files.\n"
+    "- Protected core files (index.html, js/*.js, css/*.css, backend/*, sw.js) will reject edits.\n"
+    "- Use create_tab to build new tabs. Use write_file for new JS/CSS files only.\n"
+    "- You can read any file for reference, but only write to new files.\n\n"
     "Rules:\n"
     "- Be extremely brief. 1-2 sentences max unless the user asks for detail.\n"
-    "- When the user requests a feature or change: just do it using your tools. "
+    "- When the user requests a new tab or feature: just build it using your tools. "
     "Say 'On it' then use the tools. Don't ask permission, just act.\n"
     "- If you need one clarifying detail, ask it in one line.\n"
     "- After making changes, briefly say what you did.\n"
     "- Never repeat back what the user said. Never over-explain.\n"
-    "- Use read_file before editing to understand existing code.\n"
-    "- Use write_file for new files, edit_file for surgical changes to existing files.\n"
+    "- Use read_file before building to understand existing code patterns.\n"
     "- Warm but minimal. Think text message, not email."
 )
 
@@ -141,8 +173,15 @@ def _execute_tool(name: str, input: dict) -> str:
             return f"Created tab '{label}' (id: {tab_id}). It's now visible in the browser."
 
         elif name == "run_command":
+            cmd = input["command"]
+            # Block commands that could modify protected files
+            dangerous = ["rm ", "mv ", "git checkout", "git reset", "git push"]
+            if any(d in cmd for d in dangerous):
+                for pf in PROTECTED_PATHS:
+                    if pf in cmd:
+                        return f"Error: cannot run destructive commands on protected file {pf}"
             result = subprocess.run(
-                input["command"], shell=True, capture_output=True, text=True,
+                cmd, shell=True, capture_output=True, text=True,
                 timeout=30, cwd=PROJECT_ROOT,
             )
             output = result.stdout
@@ -162,12 +201,16 @@ def _execute_tool(name: str, input: dict) -> str:
             return content
 
         elif name == "write_file":
+            if _is_protected(input["path"]):
+                return f"Error: {input['path']} is a protected core file and cannot be overwritten. You can only create new files."
             filepath = Path(PROJECT_ROOT) / input["path"]
             filepath.parent.mkdir(parents=True, exist_ok=True)
             filepath.write_text(input["content"])
             return f"Written {len(input['content'])} chars to {input['path']}"
 
         elif name == "edit_file":
+            if _is_protected(input["path"]):
+                return f"Error: {input['path']} is a protected core file and cannot be edited. You can only create new tabs and files."
             filepath = Path(PROJECT_ROOT) / input["path"]
             if not filepath.exists():
                 return f"Error: file not found: {input['path']}"

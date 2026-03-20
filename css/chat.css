@@ -62,7 +62,39 @@
 .chat-hero__subtitle {
   font-size: var(--font-size-base);
   color: var(--text-secondary);
+  margin: 0 0 var(--space-4);
+}
+
+.chat-hero__capabilities {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  text-align: left;
+}
+
+.chat-hero__capabilities li {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  padding-left: var(--space-4);
+  position: relative;
+}
+
+.chat-hero__capabilities li::before {
+  content: "+";
+  position: absolute;
+  left: 0;
+  color: #00f0ff;
+  font-weight: var(--font-weight-bold);
+}
+
+.chat-hero__note {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
   margin: 0;
+  font-style: italic;
 }
 
 /* ── Messages ──────────────────────────────────────────────────── */

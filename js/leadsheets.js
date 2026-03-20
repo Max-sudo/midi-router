@@ -852,9 +852,36 @@ export function init() {
   toggleBtn      = panel.querySelector('#ls-toggle');
 
   // Sidebar toggle — tap the lead sheet image to collapse/expand sidebar
+  // Track touch movement to distinguish taps from swipes
+  let viewerTouchStartX = 0;
+  let viewerTouchStartY = 0;
+  let viewerWasSwiped = false;
+
+  viewerPages.addEventListener('touchstart', (e) => {
+    viewerTouchStartX = e.touches[0].clientX;
+    viewerTouchStartY = e.touches[0].clientY;
+    viewerWasSwiped = false;
+  }, { passive: true });
+
+  viewerPages.addEventListener('touchend', (e) => {
+    const dx = e.changedTouches[0].clientX - viewerTouchStartX;
+    const dy = e.changedTouches[0].clientY - viewerTouchStartY;
+    // Horizontal swipe → navigate between sheets
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      viewerWasSwiped = true;
+      if (dx < 0) navigate(1);   // swipe left = next
+      else navigate(-1);          // swipe right = prev
+    }
+  }, { passive: true });
+
   viewerPages.addEventListener('click', () => {
-    sidebarEl.classList.toggle('ls-sidebar--hidden');
+    // Only toggle sidebar on tap, not after a swipe
+    if (!viewerWasSwiped) {
+      sidebarEl.classList.toggle('ls-sidebar--hidden');
+    }
+    viewerWasSwiped = false;
   });
+
   // Also keep the hamburger button as a fallback
   toggleBtn.addEventListener('click', () => {
     sidebarEl.classList.toggle('ls-sidebar--hidden');
@@ -921,26 +948,31 @@ export function init() {
 
   // Swipe on play pages
   const playPages = panel.querySelector('#ls-play-pages');
-  let touchStartX = 0;
-  let touchStartY = 0;
+  let playTouchStartX = 0;
+  let playTouchStartY = 0;
+  let playWasSwiped = false;
+
   playPages.addEventListener('touchstart', (e) => {
-    touchStartX = e.touches[0].clientX;
-    touchStartY = e.touches[0].clientY;
+    playTouchStartX = e.touches[0].clientX;
+    playTouchStartY = e.touches[0].clientY;
+    playWasSwiped = false;
   }, { passive: true });
+
   playPages.addEventListener('touchend', (e) => {
     if (!playState) return;
-    const dx = e.changedTouches[0].clientX - touchStartX;
-    const dy = e.changedTouches[0].clientY - touchStartY;
-    // Only trigger on horizontal swipes (not vertical scrolling)
+    const dx = e.changedTouches[0].clientX - playTouchStartX;
+    const dy = e.changedTouches[0].clientY - playTouchStartY;
     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      playWasSwiped = true;
       if (dx < 0) playNavigate(1);  // swipe left = next
       else playNavigate(-1);         // swipe right = prev
     }
   }, { passive: true });
 
-  // Tap play pages to toggle drawer
+  // Tap play pages to toggle drawer (only on tap, not swipe)
   playPages.addEventListener('click', () => {
-    if (playState) togglePlayDrawer();
+    if (playState && !playWasSwiped) togglePlayDrawer();
+    playWasSwiped = false;
   });
 
   document.addEventListener('keydown', (e) => {
