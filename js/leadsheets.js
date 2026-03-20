@@ -369,18 +369,11 @@ function closeSetList() {
 }
 
 // ── Select a sheet ─────────────────────────────────────────────────
-// Track which set list we came from when previewing a song
-let previewingFromSetList = null;
-
 function selectSheet(sheet, fromSetList = false) {
   selectedTitle = sheet.name;
 
-  if (fromSetList) {
-    // Preserve set list context — we're just previewing this song
-    previewingFromSetList = activeSetListId;
-  } else {
+  if (!fromSetList) {
     activeSetListId = null;
-    previewingFromSetList = null;
   }
 
   for (const item of listEl.querySelectorAll('.ls-list__item')) {
@@ -889,14 +882,7 @@ export function init() {
       viewerWasSwiped = false;
       return;
     }
-    // If previewing a song from a set list, go back to that set list
-    if (previewingFromSetList) {
-      const slId = previewingFromSetList;
-      previewingFromSetList = null;
-      openSetList(slId);
-      return;
-    }
-    // Otherwise toggle sidebar
+    // Always toggle sidebar — same behavior whether from library or set list
     sidebarEl.classList.toggle('ls-sidebar--hidden');
   });
 
