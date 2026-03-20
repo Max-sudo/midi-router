@@ -882,8 +882,26 @@ export function init() {
       viewerWasSwiped = false;
       return;
     }
-    // Always toggle sidebar — same behavior whether from library or set list
-    sidebarEl.classList.toggle('ls-sidebar--hidden');
+
+    if (activeSetListId) {
+      // We're viewing a song from a set list
+      const isFullScreen = sidebarEl.classList.contains('ls-sidebar--hidden') && setListPanel.hidden;
+      if (isFullScreen) {
+        // Bring back the set list editor
+        sidebarEl.classList.remove('ls-sidebar--hidden');
+        sheetPanel.hidden = true;
+        setListPanel.hidden = false;
+        renderSetListEditor();
+      } else {
+        // Collapse everything — full screen lead sheet
+        sidebarEl.classList.add('ls-sidebar--hidden');
+        sheetPanel.hidden = false;
+        setListPanel.hidden = true;
+      }
+    } else {
+      // Normal library mode — just toggle sidebar
+      sidebarEl.classList.toggle('ls-sidebar--hidden');
+    }
   });
 
   // Also keep the hamburger button as a fallback
