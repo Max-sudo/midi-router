@@ -369,9 +369,19 @@ function closeSetList() {
 }
 
 // ── Select a sheet ─────────────────────────────────────────────────
-function selectSheet(sheet) {
+// Track which set list we came from when previewing a song
+let previewingFromSetList = null;
+
+function selectSheet(sheet, fromSetList = false) {
   selectedTitle = sheet.name;
-  activeSetListId = null;
+
+  if (fromSetList) {
+    // Preserve set list context — we're just previewing this song
+    previewingFromSetList = activeSetListId;
+  } else {
+    activeSetListId = null;
+    previewingFromSetList = null;
+  }
 
   for (const item of listEl.querySelectorAll('.ls-list__item')) {
     const isActive = item.querySelector('span:last-child')?.textContent === sheet.name;
@@ -519,7 +529,7 @@ function renderSetListEditor() {
     name.addEventListener('click', (e) => {
       e.stopPropagation();
       const sheet = sheets.find(s => s.name === displayName(title) || s.origTitles.includes(title));
-      if (sheet) selectSheet(sheet);
+      if (sheet) selectSheet(sheet, true);
     });
 
     const removeBtn = document.createElement('button');
@@ -875,11 +885,19 @@ export function init() {
   }, { passive: true });
 
   viewerPages.addEventListener('click', () => {
-    // Only toggle sidebar on tap, not after a swipe
-    if (!viewerWasSwiped) {
-      sidebarEl.classList.toggle('ls-sidebar--hidden');
+    if (viewerWasSwiped) {
+      viewerWasSwiped = false;
+      return;
     }
-    viewerWasSwiped = false;
+    // If previewing a song from a set list, go back to that set list
+    if (previewingFromSetList) {
+      const slId = previewingFromSetList;
+      previewingFromSetList = null;
+      openSetList(slId);
+      return;
+    }
+    // Otherwise toggle sidebar
+    sidebarEl.classList.toggle('ls-sidebar--hidden');
   });
 
   // Also keep the hamburger button as a fallback
