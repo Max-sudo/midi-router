@@ -1,4 +1,4 @@
-// ── Presets: localStorage CRUD, export/import, auto-restore ────────
+// ── Presets: server-backed CRUD with localStorage fallback ─────────
 import { bus, $ } from './utils.js';
 import * as router from './router.js';
 import * as splits from './splits.js';
@@ -6,6 +6,7 @@ import * as midi from './midi.js';
 import * as pcEditor from './pc-editor.js';
 
 const STORAGE_KEY = 'midi-router-presets';
+const API_BASE = '/api/presets';
 
 // Built-in default preset: Launch Control XL → Helix
 const BUILTIN_PRESETS = {
@@ -48,7 +49,6 @@ const BUILTIN_PRESETS = {
       enabled: true,
       color: null,
       ccMap: [
-        // Faders 1-8 → Volume (CC 7) on channels 1-8
         { fromCC: 77, toCC: 7, toChannel: 1 },
         { fromCC: 78, toCC: 7, toChannel: 2 },
         { fromCC: 79, toCC: 7, toChannel: 3 },
@@ -57,7 +57,6 @@ const BUILTIN_PRESETS = {
         { fromCC: 82, toCC: 7, toChannel: 6 },
         { fromCC: 83, toCC: 7, toChannel: 7 },
         { fromCC: 84, toCC: 7, toChannel: 8 },
-        // Send A knobs → CC 91 on channels 1-8
         { fromCC: 13, toCC: 91, toChannel: 1 },
         { fromCC: 14, toCC: 91, toChannel: 2 },
         { fromCC: 15, toCC: 91, toChannel: 3 },
@@ -66,7 +65,6 @@ const BUILTIN_PRESETS = {
         { fromCC: 18, toCC: 91, toChannel: 6 },
         { fromCC: 19, toCC: 91, toChannel: 7 },
         { fromCC: 20, toCC: 91, toChannel: 8 },
-        // Send B knobs → CC 93 on channels 1-8
         { fromCC: 29, toCC: 93, toChannel: 1 },
         { fromCC: 30, toCC: 93, toChannel: 2 },
         { fromCC: 31, toCC: 93, toChannel: 3 },
@@ -75,7 +73,6 @@ const BUILTIN_PRESETS = {
         { fromCC: 34, toCC: 93, toChannel: 6 },
         { fromCC: 35, toCC: 93, toChannel: 7 },
         { fromCC: 36, toCC: 93, toChannel: 8 },
-        // Pan knobs → CC 10 on channels 1-8
         { fromCC: 49, toCC: 10, toChannel: 1 },
         { fromCC: 50, toCC: 10, toChannel: 2 },
         { fromCC: 51, toCC: 10, toChannel: 3 },
@@ -94,15 +91,31 @@ const BUILTIN_PRESETS = {
 const dropdown   = $('#preset-select');
 const saveBtn    = $('#preset-save');
 const deleteBtn  = $('#preset-delete');
-const exportBtn  = $('#preset-export');
-const importBtn  = $('#preset-import');
-const importFile = $('#preset-import-file');
 
-let presets  = {};   // { name: { routes: [...] } }
+let presets  = {};
 let lastUsed = null;
+let useServer = false;  // set to true once server responds
 
-// ── Storage ────────────────────────────────────────────────────────
-function loadFromStorage() {
+// ── Storage — server-first, localStorage fallback ─────────────────
+async function loadFromServer() {
+  try {
+    const res = await fetch(API_BASE);
+    if (!res.ok) throw new Error(res.statusText);
+    const data = await res.json();
+    presets  = data.presets || {};
+    lastUsed = data.lastUsed || null;
+    useServer = true;
+    // Sync to localStorage as backup
+    saveToLocalStorage();
+    console.log('[Presets] Loaded from server');
+  } catch {
+    // Fall back to localStorage
+    loadFromLocalStorage();
+    console.log('[Presets] Server unavailable, using localStorage');
+  }
+}
+
+function loadFromLocalStorage() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return;
@@ -115,12 +128,48 @@ function loadFromStorage() {
   }
 }
 
-function saveToStorage() {
+function saveToLocalStorage() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({
     version: 1,
     lastUsed,
     presets,
   }));
+}
+
+async function saveToServer(name, data) {
+  if (!useServer) { saveToLocalStorage(); return; }
+  try {
+    await fetch(`${API_BASE}/${encodeURIComponent(name)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, data }),
+    });
+    saveToLocalStorage();  // keep backup in sync
+  } catch {
+    saveToLocalStorage();
+  }
+}
+
+async function deleteFromServer(name) {
+  if (!useServer) { saveToLocalStorage(); return; }
+  try {
+    await fetch(`${API_BASE}/${encodeURIComponent(name)}`, { method: 'DELETE' });
+    saveToLocalStorage();
+  } catch {
+    saveToLocalStorage();
+  }
+}
+
+async function saveLastUsed() {
+  saveToLocalStorage();
+  if (!useServer) return;
+  try {
+    await fetch('/api/presets-last-used', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lastUsed }),
+    });
+  } catch { /* fallback already saved */ }
 }
 
 // ── Dropdown UI ────────────────────────────────────────────────────
@@ -139,8 +188,7 @@ function refreshDropdown() {
     return;
   }
 
-  dropdown.appendChild(new Option('— Select preset —', '', true, true));
-  dropdown.options[0].disabled = true;
+  dropdown.appendChild(new Option('— No Preset —', '', true, true));
 
   // Built-in presets first
   const builtInNames = Object.keys(BUILTIN_PRESETS).sort();
@@ -165,24 +213,25 @@ function refreshDropdown() {
 }
 
 // ── Actions ────────────────────────────────────────────────────────
-function savePreset() {
+async function savePreset() {
   const name = prompt('Preset name:', lastUsed || '');
   if (!name || !name.trim()) return;
   const trimmed = name.trim();
 
-  presets[trimmed] = {
+  const data = {
     routes: router.serialiseRoutes(),
     splits: splits.serialise(),
     programChanges: pcEditor.getProgramChanges(),
   };
+  presets[trimmed] = data;
   lastUsed = trimmed;
-  saveToStorage();
+  await saveToServer(trimmed, data);
   refreshDropdown();
   dropdown.value = trimmed;
   showToast(`Preset "${trimmed}" saved`);
 }
 
-function deletePreset() {
+async function deletePreset() {
   const name = dropdown.value;
   if (!name) return;
   if (BUILTIN_PRESETS[name]) {
@@ -194,93 +243,48 @@ function deletePreset() {
 
   delete presets[name];
   if (lastUsed === name) lastUsed = null;
-  saveToStorage();
+  await deleteFromServer(name);
   refreshDropdown();
   showToast(`Preset "${name}" deleted`);
 }
 
-function applyPreset(name) {
+async function applyPreset(name) {
   const all = getAllPresets();
   const preset = all[name];
   if (!preset) return;
-  // Restore splits FIRST so zone ranges are available for route restore
   if (preset.splits) {
     splits.restore(preset.splits);
   }
   router.restoreRoutes(preset.routes || []);
-
-  // Restore program changes into the editor
   pcEditor.setProgramChanges(preset.programChanges || []);
-
-  // Send program changes to MIDI outputs
   sendProgramChanges(preset.programChanges || []);
 
   lastUsed = name;
-  // Re-save user preset with current route data (upgrades legacy presets with zone field)
-  // Don't overwrite built-in presets
   if (!BUILTIN_PRESETS[name]) {
     presets[name] = {
       routes: router.serialiseRoutes(),
       splits: splits.serialise(),
       programChanges: pcEditor.getProgramChanges(),
     };
+    await saveToServer(name, presets[name]);
+  } else {
+    await saveLastUsed();
   }
-  saveToStorage();
   console.log(`[Presets] Applied "${name}": ${(preset.routes || []).length} routes, ${(preset.programChanges || []).length} PCs, splits: ${JSON.stringify(preset.splits || 'none')}`);
 }
 
-function autoRestore() {
+async function autoRestore() {
   const all = getAllPresets();
   if (lastUsed && all[lastUsed]) {
     dropdown.value = lastUsed;
-    applyPreset(lastUsed);
+    await applyPreset(lastUsed);
   } else {
-    // No last-used preset — auto-apply first built-in preset as default
     const defaultName = Object.keys(BUILTIN_PRESETS)[0];
     if (defaultName) {
       dropdown.value = defaultName;
-      applyPreset(defaultName);
+      await applyPreset(defaultName);
     }
   }
-}
-
-// ── Export / Import ────────────────────────────────────────────────
-function exportPresets() {
-  const data = JSON.stringify({ version: 1, presets }, null, 2);
-  const blob = new Blob([data], { type: 'application/json' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
-  a.download = 'midi-router-presets.json';
-  a.click();
-  URL.revokeObjectURL(url);
-  showToast('Presets exported');
-}
-
-function importPresets() {
-  importFile.click();
-}
-
-function handleImportFile(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = () => {
-    try {
-      const data = JSON.parse(reader.result);
-      if (!data.presets) throw new Error('Invalid format');
-      const count = Object.keys(data.presets).length;
-      Object.assign(presets, data.presets);
-      saveToStorage();
-      refreshDropdown();
-      showToast(`Imported ${count} preset${count !== 1 ? 's' : ''}`);
-    } catch (err) {
-      showToast(`Import failed: ${err.message}`);
-    }
-  };
-  reader.readAsText(file);
-  importFile.value = ''; // allow re-import of same file
 }
 
 // ── Program Change sending ─────────────────────────────────────────
@@ -320,24 +324,28 @@ function showToast(message) {
 }
 
 // ── Init ───────────────────────────────────────────────────────────
-export function init() {
-  loadFromStorage();
+export async function init() {
+  await loadFromServer();
   refreshDropdown();
 
   saveBtn.addEventListener('click', savePreset);
   deleteBtn.addEventListener('click', deletePreset);
-  exportBtn.addEventListener('click', exportPresets);
-  importBtn.addEventListener('click', importPresets);
-  importFile.addEventListener('change', handleImportFile);
 
-  dropdown.addEventListener('change', () => {
+  dropdown.addEventListener('change', async () => {
     const name = dropdown.value;
+    if (!name) {
+      router.restoreRoutes([]);
+      splits.restore(null);
+      pcEditor.setProgramChanges([]);
+      lastUsed = null;
+      await saveLastUsed();
+      return;
+    }
     const all = getAllPresets();
-    if (name && all[name]) applyPreset(name);
+    if (all[name]) await applyPreset(name);
   });
 
-  // Auto-restore after MIDI devices are ready
   bus.on('midi:ready', () => {
-    setTimeout(autoRestore, 100); // small delay for ports to render
+    setTimeout(autoRestore, 100);
   });
 }

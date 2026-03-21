@@ -51,7 +51,7 @@ async function boot() {
   take5.init();
   cosmicComet.init();
 
-  presets.init();
+  await presets.init();
 
   // 3. Web MIDI (triggers midi:ready → modules react)
   const ok = await midi.init();

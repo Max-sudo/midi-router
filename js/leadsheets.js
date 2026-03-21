@@ -762,6 +762,10 @@ export function init() {
   panel.innerHTML = `
     <div class="ls-layout">
       <aside class="ls-sidebar">
+        <div class="ls-sidebar__top-actions">
+          <button class="ls-rename-start-btn" id="ls-rename-start">Rename Sheets</button>
+          <button class="ls-download-btn" id="ls-download-btn">Download for Offline</button>
+        </div>
         <div class="ls-search">
           <input class="ls-search__input" type="search" placeholder="Search..." autocomplete="off">
         </div>
@@ -779,10 +783,6 @@ export function init() {
           <button class="ls-filter-btn ls-filter-btn--learned" data-tag="learned">Learned</button>
         </div>
         <div class="ls-list" id="ls-list"></div>
-        <div class="ls-sidebar__footer">
-          <button class="ls-rename-start-btn" id="ls-rename-start">Rename Sheets</button>
-          <button class="ls-download-btn" id="ls-download-btn">Download for Offline</button>
-        </div>
       </aside>
       <main class="ls-viewer">
         <button class="ls-toggle" id="ls-toggle" title="Toggle sidebar">☰</button>

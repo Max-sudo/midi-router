@@ -166,19 +166,18 @@
 .ls-tag-dot--up      { background: #f0b429; }
 .ls-tag-dot--learned { background: #34d399; }
 
-/* ── Sidebar footer ──────────────────────────────────────────────── */
-.ls-sidebar__footer {
+/* ── Sidebar top actions ─────────────────────────────────────────── */
+.ls-sidebar__top-actions {
   padding: var(--space-3) var(--space-4);
-  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
   display: flex;
-  flex-direction: column;
   gap: var(--space-2);
 }
 
-.ls-sidebar__footer .ls-download-btn,
-.ls-sidebar__footer .ls-rename-start-btn {
-  width: 100%;
+.ls-sidebar__top-actions .ls-download-btn,
+.ls-sidebar__top-actions .ls-rename-start-btn {
+  flex: 1;
 }
 
 .ls-rename-start-btn {

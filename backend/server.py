@@ -269,6 +269,63 @@ def delete_tab(tab_id: str):
     return {"success": True, "removed_files": removed_files}
 
 
+# ── Presets endpoints ─────────────────────────────────────────────
+PRESETS_FILE = Path(__file__).parent / "presets.json"
+
+import json
+
+def _read_presets():
+    try:
+        return json.loads(PRESETS_FILE.read_text())
+    except Exception:
+        return {"version": 1, "lastUsed": None, "presets": {}}
+
+def _write_presets(data):
+    PRESETS_FILE.write_text(json.dumps(data, indent=2))
+
+
+class PresetSaveRequest(BaseModel):
+    name: str
+    data: dict
+
+
+class PresetLastUsedRequest(BaseModel):
+    lastUsed: str | None
+
+
+@app.get("/api/presets")
+def get_presets():
+    return _read_presets()
+
+
+@app.put("/api/presets/{name}")
+def save_preset(name: str, req: PresetSaveRequest):
+    store = _read_presets()
+    store["presets"][name] = req.data
+    store["lastUsed"] = name
+    _write_presets(store)
+    return {"ok": True}
+
+
+@app.delete("/api/presets/{name}")
+def delete_preset(name: str):
+    store = _read_presets()
+    if name in store["presets"]:
+        del store["presets"][name]
+        if store["lastUsed"] == name:
+            store["lastUsed"] = None
+        _write_presets(store)
+    return {"ok": True}
+
+
+@app.put("/api/presets-last-used")
+def set_last_used(req: PresetLastUsedRequest):
+    store = _read_presets()
+    store["lastUsed"] = req.lastUsed
+    _write_presets(store)
+    return {"ok": True}
+
+
 @app.get("/api/leadsheets")
 def list_leadsheets():
     """List all lead sheet images in assets/leadsheets/."""
