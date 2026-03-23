@@ -132,11 +132,13 @@ const rawSheets = FILES
   }))
   .sort((a, b) => a.title.localeCompare(b.title));
 
-// ── Persistence ────────────────────────────────────────────────────
+// ── Persistence (localStorage + backend sync) ─────────────────────
+const BACKEND = '';
+let _syncTimer = null;
+
 function loadTags() {
   try {
     const raw = JSON.parse(localStorage.getItem('ls_tags') || '{}');
-    // Migrate old string values to arrays
     const out = {};
     for (const [k, v] of Object.entries(raw)) {
       out[k] = Array.isArray(v) ? v : (v ? [v] : []);
@@ -144,17 +146,67 @@ function loadTags() {
     return out;
   } catch { return {}; }
 }
-function saveTags(t) { localStorage.setItem('ls_tags', JSON.stringify(t)); }
+function saveTags(t) {
+  localStorage.setItem('ls_tags', JSON.stringify(t));
+  _scheduleSyncToBackend();
+}
 
 function loadSetLists() {
   try { return JSON.parse(localStorage.getItem('ls_setlists') || '[]'); } catch { return []; }
 }
-function saveSetLists(sl) { localStorage.setItem('ls_setlists', JSON.stringify(sl)); }
+function saveSetLists(sl) {
+  localStorage.setItem('ls_setlists', JSON.stringify(sl));
+  _scheduleSyncToBackend();
+}
 
 function loadRenames() {
   try { return JSON.parse(localStorage.getItem('ls_renames') || '{}'); } catch { return {}; }
 }
-function saveRenames(r) { localStorage.setItem('ls_renames', JSON.stringify(r)); }
+function saveRenames(r) {
+  localStorage.setItem('ls_renames', JSON.stringify(r));
+  _scheduleSyncToBackend();
+}
+
+// Debounced sync to backend — saves all lead sheet data as one blob
+function _scheduleSyncToBackend() {
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(_syncToBackend, 500);
+}
+
+async function _syncToBackend() {
+  try {
+    await fetch(`${BACKEND}/api/leadsheet-data`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        setlists: JSON.parse(localStorage.getItem('ls_setlists') || '[]'),
+        tags: JSON.parse(localStorage.getItem('ls_tags') || '{}'),
+        renames: JSON.parse(localStorage.getItem('ls_renames') || '{}'),
+      }),
+    });
+  } catch { /* backend unavailable — localStorage still has the data */ }
+}
+
+// On load, pull from backend and merge (backend wins if it has data)
+async function _syncFromBackend() {
+  try {
+    const res = await fetch(`${BACKEND}/api/leadsheet-data`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.setlists?.length) {
+      localStorage.setItem('ls_setlists', JSON.stringify(data.setlists));
+      setLists = data.setlists;
+    }
+    if (data.tags && Object.keys(data.tags).length) {
+      localStorage.setItem('ls_tags', JSON.stringify(data.tags));
+      tags = data.tags;
+    }
+    if (data.renames && Object.keys(data.renames).length) {
+      localStorage.setItem('ls_renames', JSON.stringify(data.renames));
+      renames = data.renames;
+    }
+  } catch { /* backend unavailable */ }
+}
 
 // ── State ──────────────────────────────────────────────────────────
 let tags = loadTags();
@@ -1018,6 +1070,12 @@ export function init() {
 
   applyFilter();
   renderSetListsSidebar();
+
+  // Sync from backend — update lists if backend has data
+  _syncFromBackend().then(() => {
+    applyFilter();
+    renderSetListsSidebar();
+  });
 }
 
 // ── Bulk rename mode ─────────────────────────────────────────────────

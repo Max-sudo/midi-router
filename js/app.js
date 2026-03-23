@@ -11,6 +11,7 @@ import * as splits from './splits.js';
 import * as pcEditor from './pc-editor.js';
 
 import * as launchpad from './launchpad.js';
+import * as lcxl from './lcxl.js';
 import * as home from './home.js';
 import * as chat from './chat.js';
 import * as leadsheets from './leadsheets.js';
@@ -45,6 +46,7 @@ async function boot() {
   pcEditor.init();
 
   launchpad.init();
+  lcxl.init();
   leadsheets.init();
   ccmonitor.init();
   audioAnalysis.init();

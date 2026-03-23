@@ -15,6 +15,7 @@ from services.progress import create_job, get_job
 from services.sync_analyzer import analyze_sync
 from services.renderer import render
 from services import launchpad_mappings, launchpad_midi, launchpad_actions
+from services import lcxl_mappings, lcxl_midi
 from services.chat import stream_chat
 
 
@@ -40,6 +41,30 @@ class LaunchpadWSManager:
 
 
 ws_manager = LaunchpadWSManager()
+
+
+# ── WebSocket manager for LCXL ────────────────────────────────────
+class LCXLWSManager:
+    def __init__(self):
+        self._clients: list[WebSocket] = []
+
+    async def connect(self, ws: WebSocket):
+        await ws.accept()
+        self._clients.append(ws)
+
+    def disconnect(self, ws: WebSocket):
+        self._clients = [c for c in self._clients if c is not ws]
+
+    def broadcast_sync(self, message: str):
+        """Called from background thread — schedules async sends."""
+        for ws in list(self._clients):
+            try:
+                asyncio.run_coroutine_threadsafe(ws.send_text(message), _loop)
+            except Exception:
+                pass
+
+
+lcxl_ws_manager = LCXLWSManager()
 _loop: asyncio.AbstractEventLoop = None
 
 
@@ -48,11 +73,27 @@ _loop: asyncio.AbstractEventLoop = None
 async def lifespan(app: FastAPI):
     global _loop
     _loop = asyncio.get_event_loop()
-    launchpad_mappings.init()
-    launchpad_midi.set_ws_broadcast(ws_manager.broadcast_sync)
-    launchpad_midi.start()
+    try:
+        launchpad_mappings.init()
+        launchpad_midi.set_ws_broadcast(ws_manager.broadcast_sync)
+        launchpad_midi.start()
+    except Exception:
+        pass  # No MIDI hardware available (e.g. running on Railway)
+    try:
+        lcxl_mappings.init()
+        lcxl_midi.set_ws_broadcast(lcxl_ws_manager.broadcast_sync)
+        lcxl_midi.start()
+    except Exception:
+        pass
     yield
-    launchpad_midi.stop()
+    try:
+        launchpad_midi.stop()
+    except Exception:
+        pass
+    try:
+        lcxl_midi.stop()
+    except Exception:
+        pass
 
 
 # ── App ────────────────────────────────────────────────────────────
@@ -210,7 +251,7 @@ def delete_tab(tab_id: str):
     import re
 
     # Core tabs cannot be deleted
-    core_tabs = {"home", "midi", "avsync", "launchpad"}
+    core_tabs = {"home", "midi", "avsync", "launchpad", "lcxl"}
     if tab_id in core_tabs:
         raise HTTPException(status_code=400, detail="Cannot delete core tab")
 
@@ -340,6 +381,36 @@ def list_leadsheets():
     return sheets
 
 
+# ── Lead sheet data (set lists, tags, renames) ────────────────────
+LEADSHEET_DATA_FILE = Path(__file__).parent / "leadsheet_data.json"
+
+def _read_ls_data():
+    try:
+        return json.loads(LEADSHEET_DATA_FILE.read_text())
+    except Exception:
+        return {"setlists": [], "tags": {}, "renames": {}}
+
+def _write_ls_data(data):
+    LEADSHEET_DATA_FILE.write_text(json.dumps(data, indent=2))
+
+
+@app.get("/api/leadsheet-data")
+def get_leadsheet_data():
+    return _read_ls_data()
+
+
+class LeadsheetDataRequest(BaseModel):
+    setlists: list = []
+    tags: dict = {}
+    renames: dict = {}
+
+
+@app.put("/api/leadsheet-data")
+def save_leadsheet_data(req: LeadsheetDataRequest):
+    _write_ls_data(req.model_dump())
+    return {"ok": True}
+
+
 @app.get("/api/browse")
 def browse_directory(path: str = "~"):
     """List directories for the folder picker."""
@@ -423,6 +494,83 @@ async def launchpad_ws(websocket: WebSocket):
             await websocket.receive_text()  # keep alive
     except WebSocketDisconnect:
         ws_manager.disconnect(websocket)
+
+
+# ── LCXL endpoints ────────────────────────────────────────────────
+
+class LCXLMappingRequest(BaseModel):
+    label: str = ""
+    target_channel: int | None = None
+    target_cc: int | None = None
+    mode: str = "continuous"
+
+
+@app.get("/api/lcxl/status")
+def lcxl_status():
+    return lcxl_midi.get_status()
+
+
+@app.get("/api/lcxl/layout")
+def lcxl_layout():
+    return {"layout": lcxl_mappings.get_layout()}
+
+
+@app.get("/api/lcxl/mappings")
+def lcxl_get_mappings():
+    return {
+        "profile": lcxl_mappings.get_active_profile_name(),
+        "mappings": lcxl_mappings.get_all_mappings(),
+    }
+
+
+@app.put("/api/lcxl/mappings/{control_id}")
+def lcxl_set_mapping(control_id: str, req: LCXLMappingRequest):
+    lcxl_mappings.set_mapping(control_id, req.model_dump())
+    return {"ok": True}
+
+
+@app.delete("/api/lcxl/mappings/{control_id}")
+def lcxl_delete_mapping(control_id: str):
+    lcxl_mappings.delete_mapping(control_id)
+    return {"ok": True}
+
+
+@app.get("/api/lcxl/profiles")
+def lcxl_list_profiles():
+    return {
+        "profiles": lcxl_mappings.list_profiles(),
+        "active": lcxl_mappings.get_active_profile_name(),
+    }
+
+
+@app.post("/api/lcxl/profiles/{name}")
+def lcxl_save_profile(name: str):
+    lcxl_mappings.save_profile(name)
+    return {"ok": True}
+
+
+@app.put("/api/lcxl/profiles/{name}/apply")
+def lcxl_apply_profile(name: str):
+    if not lcxl_mappings.apply_profile(name):
+        raise HTTPException(status_code=404, detail="Profile not found")
+    return {"ok": True, "mappings": lcxl_mappings.get_all_mappings()}
+
+
+@app.delete("/api/lcxl/profiles/{name}")
+def lcxl_delete_profile(name: str):
+    if not lcxl_mappings.delete_profile(name):
+        raise HTTPException(status_code=400, detail="Cannot delete active or nonexistent profile")
+    return {"ok": True}
+
+
+@app.websocket("/api/lcxl/ws")
+async def lcxl_ws(websocket: WebSocket):
+    await lcxl_ws_manager.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()  # keep alive
+    except WebSocketDisconnect:
+        lcxl_ws_manager.disconnect(websocket)
 
 
 # ── Chat endpoint ────────────────────────────────────────────────

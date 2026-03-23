@@ -1,8 +1,11 @@
 # ── Waveform cross-correlation sync analysis ───────────────────────
 import os
-import numpy as np
-import librosa
-from scipy.signal import fftconvolve
+try:
+    import numpy as np
+    import librosa
+    from scipy.signal import fftconvolve
+except ImportError:
+    np = librosa = fftconvolve = None
 
 from .audio_extract import extract_audio
 from .progress import ProgressTracker

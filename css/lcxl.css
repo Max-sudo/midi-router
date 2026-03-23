@@ -1,0 +1,372 @@
+/* ── Launch Control XL ──────────────────────────────────────────────── */
+
+.lcxl-container {
+  display: flex;
+  gap: var(--space-6);
+  padding: var(--space-6);
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* ── Device visual ─────────────────────────────────────────────────── */
+.lcxl-device {
+  flex: 1;
+  max-width: 800px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.lcxl-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.lcxl-header__left {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.lcxl-header__brand {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-tertiary);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.lcxl-header__model {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+}
+
+.lcxl-header__right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.lcxl-profile-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.lcxl-profile-select {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  padding: var(--space-1) var(--space-3);
+}
+
+.lcxl-status {
+  font-size: var(--font-size-xs);
+  color: var(--accent-green);
+}
+
+.lcxl-status--error {
+  color: var(--accent-red);
+}
+
+/* ── Sections ──────────────────────────────────────────────────────── */
+.lcxl-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.lcxl-row {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: var(--space-3);
+}
+
+/* ── Knobs ─────────────────────────────────────────────────────────── */
+.lcxl-knob {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  cursor: pointer;
+}
+
+.lcxl-knob__dial {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  border: 2px solid var(--border-default);
+  position: relative;
+  transition: border-color var(--transition-fast);
+}
+
+.lcxl-knob:hover .lcxl-knob__dial {
+  border-color: var(--accent-cyan);
+}
+
+.lcxl-knob--selected .lcxl-knob__dial {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 8px rgba(0, 200, 255, 0.3);
+}
+
+.lcxl-knob__indicator {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  width: 3px;
+  height: 10px;
+  background: var(--text-primary);
+  border-radius: 2px;
+  transform-origin: bottom center;
+  transform: translateX(-50%);
+}
+
+.lcxl-knob__label {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  text-align: center;
+  max-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Buttons ───────────────────────────────────────────────────────── */
+.lcxl-button {
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  font-size: 10px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lcxl-button:hover {
+  border-color: var(--accent-cyan);
+}
+
+.lcxl-button--selected {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 8px rgba(0, 200, 255, 0.3);
+}
+
+.lcxl-button--active {
+  background: rgba(0, 200, 100, 0.2);
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+}
+
+.lcxl-button--muted {
+  background: rgba(255, 60, 60, 0.15);
+  border-color: var(--accent-red);
+  color: var(--accent-red);
+}
+
+.lcxl-button--flash {
+  background: rgba(0, 200, 255, 0.4) !important;
+  transition: none;
+}
+
+.lcxl-button__label {
+  font-size: 10px;
+  pointer-events: none;
+}
+
+/* ── Faders ────────────────────────────────────────────────────────── */
+.lcxl-fader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  cursor: pointer;
+}
+
+.lcxl-fader__track {
+  width: 8px;
+  height: 120px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+}
+
+.lcxl-fader:hover .lcxl-fader__track {
+  border-color: var(--accent-cyan);
+}
+
+.lcxl-fader--selected .lcxl-fader__track {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 8px rgba(0, 200, 255, 0.3);
+}
+
+.lcxl-fader__fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 0%;
+  background: linear-gradient(to top, var(--accent-cyan), var(--accent-blue));
+  border-radius: 3px;
+  transition: height 60ms ease-out;
+}
+
+.lcxl-fader__thumb {
+  position: absolute;
+  left: -4px;
+  right: -4px;
+  height: 6px;
+  background: var(--text-primary);
+  border-radius: 2px;
+  bottom: 0%;
+  transition: bottom 60ms ease-out;
+}
+
+.lcxl-fader__value {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+}
+
+/* ── Channel labels ──────────────────────────────────────────────── */
+.lcxl-row--labels {
+  gap: var(--space-3);
+}
+
+.lcxl-channel-label {
+  font-size: var(--font-size-xs);
+  color: var(--accent-orange);
+  text-align: center;
+  font-weight: var(--font-weight-bold);
+}
+
+/* ── Editor panel ──────────────────────────────────────────────────── */
+.lcxl-editor {
+  width: 280px;
+  flex-shrink: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-height: fit-content;
+}
+
+.lcxl-editor__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.lcxl-editor__title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+}
+
+.lcxl-editor__close {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.lcxl-editor__close:hover {
+  color: var(--text-primary);
+}
+
+.lcxl-editor__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.lcxl-editor__actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* ── Fields ────────────────────────────────────────────────────────── */
+.lcxl-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.lcxl-field__label {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.lcxl-field__input,
+.lcxl-field__select {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  padding: var(--space-2) var(--space-3);
+}
+
+.lcxl-field__input:focus,
+.lcxl-field__select:focus {
+  outline: none;
+  border-color: var(--accent-cyan);
+}
+
+/* ── Buttons ───────────────────────────────────────────────────────── */
+.lcxl-btn {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  padding: var(--space-1) var(--space-3);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.lcxl-btn:hover {
+  border-color: var(--text-tertiary);
+  color: var(--text-primary);
+}
+
+.lcxl-btn--primary {
+  background: var(--accent-cyan);
+  border-color: var(--accent-cyan);
+  color: var(--bg-base);
+}
+
+.lcxl-btn--primary:hover {
+  opacity: 0.9;
+}
+
+.lcxl-btn--danger {
+  color: var(--accent-red);
+  border-color: var(--accent-red);
+}
+
+.lcxl-btn--danger:hover {
+  background: rgba(255, 60, 60, 0.15);
+}
