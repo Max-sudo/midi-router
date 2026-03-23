@@ -175,36 +175,54 @@ function _scheduleSyncToBackend() {
 
 async function _syncToBackend() {
   try {
-    await fetch(`${BACKEND}/api/leadsheet-data`, {
-      method: 'PUT',
+    const res = await fetch(`${BACKEND}/api/sync`, {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         setlists: JSON.parse(localStorage.getItem('ls_setlists') || '[]'),
         tags: JSON.parse(localStorage.getItem('ls_tags') || '{}'),
+        notes: JSON.parse(localStorage.getItem('ls_notes') || '{}'),
         renames: JSON.parse(localStorage.getItem('ls_renames') || '{}'),
       }),
     });
+    if (!res.ok) return;
+    // Server returns the merged result — update local to match
+    const merged = await res.json();
+    localStorage.setItem('ls_setlists', JSON.stringify(merged.setlists || []));
+    localStorage.setItem('ls_tags', JSON.stringify(merged.tags || {}));
+    localStorage.setItem('ls_notes', JSON.stringify(merged.notes || {}));
+    localStorage.setItem('ls_renames', JSON.stringify(merged.renames || {}));
+    setLists = merged.setlists || [];
+    tags = merged.tags || {};
+    renames = merged.renames || {};
   } catch { /* backend unavailable — localStorage still has the data */ }
 }
 
-// On load, pull from backend and merge (backend wins if it has data)
+// On load, pull from backend and merge additively
 async function _syncFromBackend() {
   try {
-    const res = await fetch(`${BACKEND}/api/leadsheet-data`);
+    // Send local data to server for additive merge
+    const res = await fetch(`${BACKEND}/api/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        setlists: JSON.parse(localStorage.getItem('ls_setlists') || '[]'),
+        tags: JSON.parse(localStorage.getItem('ls_tags') || '{}'),
+        notes: JSON.parse(localStorage.getItem('ls_notes') || '{}'),
+        renames: JSON.parse(localStorage.getItem('ls_renames') || '{}'),
+      }),
+    });
     if (!res.ok) return;
-    const data = await res.json();
-    if (data.setlists?.length) {
-      localStorage.setItem('ls_setlists', JSON.stringify(data.setlists));
-      setLists = data.setlists;
-    }
-    if (data.tags && Object.keys(data.tags).length) {
-      localStorage.setItem('ls_tags', JSON.stringify(data.tags));
-      tags = data.tags;
-    }
-    if (data.renames && Object.keys(data.renames).length) {
-      localStorage.setItem('ls_renames', JSON.stringify(data.renames));
-      renames = data.renames;
-    }
+    const merged = await res.json();
+    localStorage.setItem('ls_setlists', JSON.stringify(merged.setlists || []));
+    localStorage.setItem('ls_tags', JSON.stringify(merged.tags || {}));
+    localStorage.setItem('ls_notes', JSON.stringify(merged.notes || {}));
+    localStorage.setItem('ls_renames', JSON.stringify(merged.renames || {}));
+    setLists = merged.setlists || [];
+    tags = merged.tags || {};
+    renames = merged.renames || {};
+    sheets = buildGroupedSheets();
+    filteredSheets = [...sheets];
   } catch { /* backend unavailable */ }
 }
 
@@ -241,6 +259,17 @@ let filteredSheets = [...sheets];
 let listEl, setListsEl, viewerPages, viewerTitleEl, viewerEmpty,
     viewerHeader, tagPickerEl, sheetPanel, setListPanel,
     setListNameEl, setListSongsEl, searchEl, sidebarEl, toggleBtn;
+let renamePanel, playPanel;
+
+// Hide all viewer panels — call before showing any panel
+function hideAllPanels() {
+  if (sheetPanel) sheetPanel.hidden = true;
+  if (setListPanel) setListPanel.hidden = true;
+  if (viewerEmpty) viewerEmpty.hidden = true;
+  if (renamePanel) renamePanel.hidden = true;
+  if (playPanel) playPanel.hidden = true;
+  if (viewerHeader) viewerHeader.hidden = true;
+}
 
 // ── Tag helpers ────────────────────────────────────────────────────
 function getTags(name) {
@@ -414,8 +443,7 @@ function renderSetListsSidebar() {
 
 function closeSetList() {
   activeSetListId = null;
-  sheetPanel.hidden = true;
-  setListPanel.hidden = true;
+  hideAllPanels();
   viewerEmpty.hidden = false;
   renderSetListsSidebar();
 }
@@ -435,9 +463,8 @@ function selectSheet(sheet, fromSetList = false) {
   const activeItem = listEl.querySelector('.ls-list__item--active');
   if (activeItem) activeItem.scrollIntoView({ block: 'nearest' });
 
+  hideAllPanels();
   sheetPanel.hidden = false;
-  setListPanel.hidden = true;
-  viewerEmpty.hidden = true;
   viewerTitleEl.textContent = sheet.name;
   viewerHeader.hidden = false;
 
@@ -478,9 +505,8 @@ function openSetList(id) {
   activeSetListId = id;
   selectedTitle = null;
 
-  sheetPanel.hidden = true;
+  hideAllPanels();
   setListPanel.hidden = false;
-  viewerEmpty.hidden = true;
 
   for (const item of listEl.querySelectorAll('.ls-list__item')) {
     item.classList.remove('ls-list__item--active');
@@ -717,13 +743,8 @@ function startPlayMode(slId) {
 
   playState = { slId, items, songItems, index: 0, drawerOpen: false };
 
-  // Hide everything else
-  sheetPanel.hidden = true;
-  setListPanel.hidden = true;
-  viewerEmpty.hidden = true;
+  hideAllPanels();
   sidebarEl.classList.add('ls-sidebar--hidden');
-
-  const playPanel = document.querySelector('#ls-play-panel');
   playPanel.hidden = false;
 
   renderPlayView();
@@ -731,8 +752,7 @@ function startPlayMode(slId) {
 
 function stopPlayMode() {
   playState = null;
-  const playPanel = document.querySelector('#ls-play-panel');
-  playPanel.hidden = true;
+  hideAllPanels();
   // Return to set list editor
   openSetList(activeSetListId);
   sidebarEl.classList.remove('ls-sidebar--hidden');
@@ -905,6 +925,8 @@ export function init() {
   searchEl       = panel.querySelector('.ls-search__input');
   sidebarEl      = panel.querySelector('.ls-sidebar');
   toggleBtn      = panel.querySelector('#ls-toggle');
+  renamePanel    = panel.querySelector('#ls-rename-panel');
+  playPanel      = panel.querySelector('#ls-play-panel');
 
   // Sidebar toggle — tap the lead sheet image to collapse/expand sidebar
   // Track touch movement to distinguish taps from swipes
@@ -941,14 +963,15 @@ export function init() {
       if (isFullScreen) {
         // Bring back the set list editor
         sidebarEl.classList.remove('ls-sidebar--hidden');
-        sheetPanel.hidden = true;
+        hideAllPanels();
         setListPanel.hidden = false;
         renderSetListEditor();
       } else {
         // Collapse everything — full screen lead sheet
         sidebarEl.classList.add('ls-sidebar--hidden');
+        hideAllPanels();
         sheetPanel.hidden = false;
-        setListPanel.hidden = true;
+        viewerHeader.hidden = false;
       }
     } else {
       // Normal library mode — just toggle sidebar
@@ -987,6 +1010,17 @@ export function init() {
 
   panel.querySelector('#ls-setlist-close').addEventListener('click', closeSetList);
 
+  // Clicking empty space in the set list panel returns to the current lead sheet
+  setListPanel.addEventListener('click', (e) => {
+    // Only trigger on the panel background or songs container background, not on controls
+    if ((e.target === setListPanel || e.target === setListSongsEl) && selectedTitle && activeSetListId) {
+      hideAllPanels();
+      sheetPanel.hidden = false;
+      viewerHeader.hidden = false;
+      sidebarEl.classList.add('ls-sidebar--hidden');
+    }
+  });
+
   panel.querySelector('#ls-setlist-break').addEventListener('click', () => {
     const sl = getSetList(activeSetListId);
     if (!sl) return;
@@ -995,12 +1029,14 @@ export function init() {
     renderSetListEditor();
   });
 
-  panel.querySelector('#ls-setlist-delete').addEventListener('click', () => {
-    setLists = setLists.filter(sl => sl.id !== activeSetListId);
+  panel.querySelector('#ls-setlist-delete').addEventListener('click', async () => {
+    const idToDelete = activeSetListId;
+    setLists = setLists.filter(sl => sl.id !== idToDelete);
     saveSetLists(setLists);
+    // Soft delete on server
+    try { await fetch(`${BACKEND}/api/sync/setlist/${idToDelete}`, { method: 'DELETE' }); } catch {}
     activeSetListId = null;
-    sheetPanel.hidden = true;
-    setListPanel.hidden = true;
+    hideAllPanels();
     viewerEmpty.hidden = false;
     renderSetListsSidebar();
   });
@@ -1080,7 +1116,7 @@ export function init() {
 
 // ── Bulk rename mode ─────────────────────────────────────────────────
 function initRenameMode(panel) {
-  const renamePanel = panel.querySelector('#ls-rename-panel');
+  // renamePanel is assigned at module level in initLeadSheets
   const renameInput = panel.querySelector('#ls-rename-input');
   const renameImg   = panel.querySelector('#ls-rename-img');
   const renameCounter = panel.querySelector('#ls-rename-counter');
@@ -1135,16 +1171,14 @@ function initRenameMode(panel) {
       }
     }
 
-    sheetPanel.hidden = true;
-    setListPanel.hidden = true;
-    viewerEmpty.hidden = true;
+    hideAllPanels();
     renamePanel.hidden = false;
 
     showCurrentSheet();
   }
 
   function exitRename() {
-    renamePanel.hidden = true;
+    hideAllPanels();
     viewerEmpty.hidden = false;
     renameQueue = [];
     renameIndex = 0;

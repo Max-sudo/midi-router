@@ -17,6 +17,7 @@ from services.renderer import render
 from services import launchpad_mappings, launchpad_midi, launchpad_actions
 from services import lcxl_mappings, lcxl_midi
 from services.chat import stream_chat
+from services import sync as sync_service
 
 
 # ── WebSocket manager for Launchpad ──────────────────────────────────
@@ -409,6 +410,66 @@ class LeadsheetDataRequest(BaseModel):
 def save_leadsheet_data(req: LeadsheetDataRequest):
     _write_ls_data(req.model_dump())
     return {"ok": True}
+
+
+# ── Sync schemas ──────────────────────────────────────────────────
+
+class SyncSetlist(BaseModel):
+    id: str
+    name: str
+    songs: list = []
+
+class SyncRequest(BaseModel):
+    setlists: list[SyncSetlist] = []
+    tags: dict[str, list[str]] = {}
+    notes: dict[str, list[str]] = {}
+    renames: dict[str, str] = {}
+
+
+# ── Sync endpoints ───────────────────────────────────────────────
+
+@app.get("/api/sync")
+def sync_get():
+    """Return all synced data."""
+    return sync_service.load_data()
+
+
+@app.post("/api/sync")
+def sync_post(req: SyncRequest):
+    """Receive local data, merge additively with server, return merged result."""
+    server = sync_service.load_data()
+    local = req.model_dump()
+
+    merged = {
+        "setlists": sync_service.merge_setlists(local["setlists"], server["setlists"]),
+        "tags": sync_service.merge_tags(local["tags"], server["tags"]),
+        "notes": sync_service.merge_notes(local["notes"], server["notes"]),
+        "renames": sync_service.merge_renames(local["renames"], server["renames"]),
+        "recently_deleted": server.get("recently_deleted", []),
+    }
+    sync_service.save_data(merged)
+    return merged
+
+
+@app.delete("/api/sync/setlist/{setlist_id}")
+def sync_delete_setlist(setlist_id: str):
+    """Soft-delete a set list (move to recently deleted)."""
+    data = sync_service.delete_setlist(setlist_id)
+    return {"ok": True, "recently_deleted": data["recently_deleted"]}
+
+
+@app.post("/api/sync/setlist/{setlist_id}/restore")
+def sync_restore_setlist(setlist_id: str):
+    """Restore a set list from recently deleted."""
+    data = sync_service.restore_setlist(setlist_id)
+    return {"ok": True, "setlists": data["setlists"]}
+
+
+@app.get("/api/sync/deleted")
+def sync_list_deleted():
+    """List recently deleted set lists."""
+    data = sync_service.load_data()
+    return {"recently_deleted": data["recently_deleted"]}
 
 
 @app.get("/api/browse")
