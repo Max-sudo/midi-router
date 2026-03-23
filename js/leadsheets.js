@@ -616,11 +616,11 @@ function renderSetListEditor() {
 
     attachDragEvents(row, i, sl);
 
+    row.appendChild(removeBtn);
     row.appendChild(handle);
     row.appendChild(num);
     row.appendChild(dots);
     row.appendChild(name);
-    row.appendChild(removeBtn);
     setListSongsEl.appendChild(row);
   });
 }
