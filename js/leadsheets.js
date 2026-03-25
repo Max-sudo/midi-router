@@ -857,12 +857,12 @@ export function init() {
         <div class="ls-list" id="ls-list"></div>
       </aside>
       <main class="ls-viewer">
-        <button class="ls-toggle" id="ls-toggle" title="Toggle sidebar">☰</button>
         <div class="ls-viewer__empty" id="ls-viewer-empty">Select a lead sheet</div>
 
         <!-- Sheet panel -->
         <div id="ls-sheet-panel" hidden>
           <div class="ls-viewer__header" id="ls-viewer-header">
+            <button class="ls-toggle" id="ls-toggle" title="Toggle sidebar">☰</button>
             <span class="ls-viewer__title" id="ls-viewer-title"></span>
             <div class="ls-tag-picker" id="ls-tag-picker"></div>
           </div>

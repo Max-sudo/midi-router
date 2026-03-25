@@ -15,23 +15,25 @@
 .header {
   display: flex;
   align-items: stretch;
-  padding: 0 var(--space-6);
+  padding: 0 var(--space-2);
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border-subtle);
   z-index: 10;
+  overflow: hidden;
 }
 
 .header__brand {
   display: flex;
   align-items: center;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-primary);
   letter-spacing: -0.01em;
-  padding-right: var(--space-6);
-  margin-right: var(--space-2);
+  padding-right: var(--space-3);
+  margin-right: var(--space-1);
   border-right: 1px solid var(--border-subtle);
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .header__tabs {
