@@ -616,11 +616,11 @@ function renderSetListEditor() {
 
     attachDragEvents(row, i, sl);
 
-    row.appendChild(removeBtn);
     row.appendChild(handle);
     row.appendChild(num);
     row.appendChild(dots);
     row.appendChild(name);
+    row.appendChild(removeBtn);
     setListSongsEl.appendChild(row);
   });
 }
@@ -704,7 +704,23 @@ function addToActiveSetList(title) {
 
 // ── Keyboard navigation ────────────────────────────────────────────
 function navigate(dir) {
-  if (activeSetListId) return;
+  if (activeSetListId) {
+    // Navigate within set list songs
+    const sl = getSetList(activeSetListId);
+    if (!sl) return;
+    // Get non-break songs only
+    const songs = sl.songs.filter(s => s !== '__break__');
+    const currentIdx = songs.findIndex(s => {
+      const sheet = sheets.find(sh => sh.name === displayName(s) || sh.origTitles.includes(s));
+      return sheet && sheet.name === selectedTitle;
+    });
+    const nextIdx = currentIdx + dir;
+    if (nextIdx < 0 || nextIdx >= songs.length) return;
+    const nextTitle = songs[nextIdx];
+    const nextSheet = sheets.find(sh => sh.name === displayName(nextTitle) || sh.origTitles.includes(nextTitle));
+    if (nextSheet) selectSheet(nextSheet, true);
+    return;
+  }
   const current = selectedTitle ? sheets.findIndex(s => s.name === selectedTitle) : -1;
   const next = current + dir;
   if (next < 0 || next >= sheets.length) return;

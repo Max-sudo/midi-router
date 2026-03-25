@@ -562,7 +562,7 @@
   flex-shrink: 0;
   -webkit-tap-highlight-color: transparent;
 }
-.ls-setlist-row__btn--remove { color: rgba(255,100,100,0.6); }
+.ls-setlist-row__btn--remove { color: rgba(255,100,100,0.6); margin-left: auto; }
 
 .ls-setlist-row__btn:hover:not(:disabled) { color: var(--text-primary); background: var(--bg-elevated); }
 .ls-setlist-row__btn:disabled { opacity: 0.25; cursor: default; }
