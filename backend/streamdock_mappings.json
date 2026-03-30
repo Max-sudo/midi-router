@@ -1,0 +1,26 @@
+{
+  "active_profile": "Default",
+  "profiles": {
+    "Default": {
+      "0": { "action_type": "open_app", "params": { "app_name": "VLC" }, "label": "VLC", "icon": "" },
+      "1": { "action_type": "open_app", "params": { "app_name": "Photo Booth" }, "label": "Photo Booth", "icon": "" },
+      "2": { "action_type": "toggle_mute", "params": {}, "label": "Mute", "icon": "" },
+      "3": { "action_type": "media_previous", "params": {}, "label": "Prev", "icon": "" },
+      "4": { "action_type": "media_play_pause", "params": {}, "label": "Play/Pause", "icon": "" },
+      "5": { "action_type": "media_next", "params": {}, "label": "Next", "icon": "" },
+      "6": { "action_type": "open_app", "params": { "app_name": "Spotify" }, "label": "Spotify", "icon": "" },
+      "7": { "action_type": "open_app", "params": { "app_name": "GitHub Desktop" }, "label": "GitHub", "icon": "" },
+      "8": { "action_type": "open_app", "params": { "app_name": "Transmit" }, "label": "Transmit", "icon": "" },
+      "9": { "action_type": "open_app", "params": { "app_name": "Brave Browser" }, "label": "Brave", "icon": "" },
+      "10": { "action_type": "open_app", "params": { "app_name": "Nova" }, "label": "Nova", "icon": "" },
+      "11": { "action_type": "open_app", "params": { "app_name": "Notes" }, "label": "Notes", "icon": "" },
+      "12": { "action_type": "open_app", "params": { "app_name": "Giphy Capture" }, "label": "Giphy", "icon": "" },
+      "13": { "action_type": "open_app", "params": { "app_name": "Xcode" }, "label": "Xcode", "icon": "" }
+    },
+    "Gmail": {
+      "0": { "action_type": "open_url", "params": { "url": "https://mail.google.com/mail/u/0/", "browser": "Brave Browser" }, "label": "Gmail 1", "icon": "" },
+      "1": { "action_type": "open_url", "params": { "url": "https://mail.google.com/mail/u/1/", "browser": "Brave Browser" }, "label": "Gmail 2", "icon": "" },
+      "2": { "action_type": "open_url", "params": { "url": "https://mail.google.com/mail/u/2/", "browser": "Brave Browser" }, "label": "Gmail 3", "icon": "" }
+    }
+  }
+}

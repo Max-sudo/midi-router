@@ -12,6 +12,7 @@ import * as pcEditor from './pc-editor.js';
 
 import * as launchpad from './launchpad.js';
 import * as lcxl from './lcxl.js';
+import * as streamdock from './streamdock.js';
 import * as home from './home.js';
 import * as chat from './chat.js';
 import * as leadsheets from './leadsheets.js';
@@ -47,6 +48,7 @@ async function boot() {
 
   launchpad.init();
   lcxl.init();
+  streamdock.init();
   leadsheets.init();
   ccmonitor.init();
   audioAnalysis.init();

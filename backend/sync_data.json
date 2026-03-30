@@ -1,0 +1,49 @@
+{
+  "setlists": [
+    {
+      "id": "1773274590346",
+      "name": "Speakeasy",
+      "songs": [
+        "Autumn Leaves",
+        "All Of Me",
+        "Dream a Little Dream",
+        "How High The Moon",
+        "My Funny Valentine",
+        "Sunday Kind of Love",
+        "there will never be another you"
+      ]
+    }
+  ],
+  "tags": {
+    "All Of Me": [],
+    "Autumn Leaves": [],
+    "Bewitched": [
+      "ballad"
+    ],
+    "Blue in Green": [
+      "ballad"
+    ],
+    "Cheek To Cheek": [
+      "ballad"
+    ],
+    "Dream a Little Dream": [
+      "ballad"
+    ],
+    "Emily": [
+      "ballad",
+      "mid"
+    ],
+    "Misty": [
+      "ballad"
+    ],
+    "Someday My Prince": [
+      "ballad"
+    ],
+    "Stella By Starlight": [
+      "ballad"
+    ]
+  },
+  "notes": {},
+  "renames": {},
+  "recently_deleted": []
+}
