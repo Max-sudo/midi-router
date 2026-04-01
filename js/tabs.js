@@ -4,7 +4,7 @@ import { bus, $, $$ } from './utils.js';
 let activeTab = 'home';
 
 // Core tabs that cannot be deleted
-const CORE_TABS = new Set(['home', 'chat', 'midi', 'launchpad', 'streamdock', 'leadsheets', 'ccmonitor']);
+const CORE_TABS = new Set(['home', 'chat', 'midi', 'launchpad', 'leadsheets', 'ccmonitor']);
 
 export function getActiveTab() {
   return activeTab;

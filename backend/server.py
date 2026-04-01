@@ -17,7 +17,7 @@ from services.sync_analyzer import analyze_sync
 from services.renderer import render
 from services import launchpad_mappings, launchpad_midi, launchpad_actions
 from services import lcxl_mappings, lcxl_midi
-from services import streamdock_mappings, streamdock_connection, streamdock_actions
+
 from services.chat import stream_chat
 from services import sync as sync_service
 
@@ -70,28 +70,6 @@ class LCXLWSManager:
 lcxl_ws_manager = LCXLWSManager()
 
 
-# ── WebSocket manager for Stream Dock ────────���───────────────────
-class StreamDockWSManager:
-    def __init__(self):
-        self._clients: list[WebSocket] = []
-
-    async def connect(self, ws: WebSocket):
-        await ws.accept()
-        self._clients.append(ws)
-
-    def disconnect(self, ws: WebSocket):
-        self._clients = [c for c in self._clients if c is not ws]
-
-    def broadcast_sync(self, message: str):
-        """Called from background thread — schedules async sends."""
-        for ws in list(self._clients):
-            try:
-                asyncio.run_coroutine_threadsafe(ws.send_text(message), _loop)
-            except Exception:
-                pass
-
-
-streamdock_ws_manager = StreamDockWSManager()
 _loop: asyncio.AbstractEventLoop = None
 
 
@@ -112,12 +90,6 @@ async def lifespan(app: FastAPI):
         lcxl_midi.start()
     except Exception:
         pass
-    try:
-        streamdock_mappings.init()
-        streamdock_connection.set_ws_broadcast(streamdock_ws_manager.broadcast_sync)
-        streamdock_connection.start()
-    except Exception:
-        pass
     yield
     try:
         launchpad_midi.stop()
@@ -125,10 +97,6 @@ async def lifespan(app: FastAPI):
         pass
     try:
         lcxl_midi.stop()
-    except Exception:
-        pass
-    try:
-        streamdock_connection.stop()
     except Exception:
         pass
 
@@ -669,101 +637,6 @@ async def lcxl_ws(websocket: WebSocket):
     except WebSocketDisconnect:
         lcxl_ws_manager.disconnect(websocket)
 
-
-# ── Stream Dock endpoints ────────────────────────────────────────
-
-class StreamDockMappingRequest(BaseModel):
-    action_type: str
-    params: dict = {}
-    label: str = ""
-    icon: str = ""
-
-
-@app.get("/api/streamdock/status")
-def streamdock_status():
-    return streamdock_connection.get_status()
-
-
-@app.get("/api/streamdock/apps")
-def streamdock_list_apps():
-    return {"apps": launchpad_actions.list_apps()}
-
-
-@app.get("/api/streamdock/apps/{app_name}/icon")
-def streamdock_app_icon(app_name: str):
-    icon_path = launchpad_actions.get_app_icon(app_name)
-    if not icon_path:
-        raise HTTPException(status_code=404, detail="Icon not found")
-    return FileResponse(icon_path, media_type="image/png",
-                        headers={"Cache-Control": "public, max-age=86400"})
-
-
-@app.get("/api/streamdock/mappings")
-def streamdock_get_mappings():
-    return {
-        "profile": streamdock_mappings.get_active_profile_name(),
-        "mappings": streamdock_mappings.get_all_mappings(),
-    }
-
-
-@app.put("/api/streamdock/mappings/{button_index}")
-def streamdock_set_mapping(button_index: int, req: StreamDockMappingRequest):
-    streamdock_mappings.set_mapping(button_index, req.model_dump())
-    return {"ok": True}
-
-
-@app.delete("/api/streamdock/mappings/{button_index}")
-def streamdock_delete_mapping(button_index: int):
-    streamdock_mappings.delete_mapping(button_index)
-    return {"ok": True}
-
-
-@app.get("/api/streamdock/profiles")
-def streamdock_list_profiles():
-    return {
-        "profiles": streamdock_mappings.list_profiles(),
-        "active": streamdock_mappings.get_active_profile_name(),
-    }
-
-
-@app.post("/api/streamdock/profiles/{name}")
-def streamdock_save_profile(name: str):
-    streamdock_mappings.save_profile(name)
-    return {"ok": True}
-
-
-@app.put("/api/streamdock/profiles/{name}/apply")
-def streamdock_apply_profile(name: str):
-    if not streamdock_mappings.apply_profile(name):
-        raise HTTPException(status_code=404, detail="Profile not found")
-    return {"ok": True, "mappings": streamdock_mappings.get_all_mappings()}
-
-
-@app.delete("/api/streamdock/profiles/{name}")
-def streamdock_delete_profile(name: str):
-    if not streamdock_mappings.delete_profile(name):
-        raise HTTPException(status_code=400, detail="Cannot delete active or nonexistent profile")
-    return {"ok": True}
-
-
-@app.post("/api/streamdock/test/{button_index}")
-def streamdock_test_action(button_index: int):
-    """Test-fire an action without pressing the physical button."""
-    action = streamdock_mappings.get_mapping(button_index)
-    if not action:
-        raise HTTPException(status_code=404, detail="No mapping for this button")
-    result = streamdock_actions.execute(action)
-    return result
-
-
-@app.websocket("/api/streamdock/ws")
-async def streamdock_ws(websocket: WebSocket):
-    await streamdock_ws_manager.connect(websocket)
-    try:
-        while True:
-            await websocket.receive_text()  # keep alive
-    except WebSocketDisconnect:
-        streamdock_ws_manager.disconnect(websocket)
 
 
 # ── Chat endpoint ────────────────────────────────────────────────
