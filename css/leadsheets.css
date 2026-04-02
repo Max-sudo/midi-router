@@ -524,9 +524,12 @@
 .ls-setlist-row__handle {
   color: var(--text-secondary);
   cursor: grab;
-  font-size: 14px;
+  font-size: 22px;
   flex-shrink: 0;
-  opacity: 0.4;
+  opacity: 0.5;
+  padding: 4px 6px;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .ls-setlist-row:hover .ls-setlist-row__handle { opacity: 1; }
@@ -802,6 +805,82 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   border-top: 1px solid var(--border-default);
+  margin-top: var(--space-2);
+  padding-top: var(--space-3);
+}
+
+/* ── Set list overlay (semi-transparent over lead sheet) ──────── */
+.ls-setlist-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(10, 10, 14, 0.85);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ls-setlist-overlay[hidden] { display: none; }
+
+.ls-setlist-overlay__list {
+  width: 90%;
+  max-width: 400px;
+  max-height: 80%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--radius-lg);
+  background: rgba(20, 20, 26, 0.95);
+  border: 1px solid var(--border-default);
+  padding: var(--space-3) 0;
+}
+
+.ls-overlay-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ls-overlay-row:hover { background: rgba(255, 255, 255, 0.05); }
+
+.ls-overlay-row--active {
+  color: var(--accent-cyan);
+  background: rgba(0, 240, 255, 0.08);
+}
+
+.ls-overlay-row__num {
+  color: var(--text-secondary);
+  font-size: 12px;
+  width: 22px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.ls-overlay-row__name {
+  color: var(--text-primary);
+  font-size: var(--font-size-base);
+}
+
+.ls-overlay-row--active .ls-overlay-row__name {
+  color: var(--accent-cyan);
+  font-weight: var(--font-weight-bold);
+}
+
+.ls-overlay-break {
+  padding: var(--space-2) var(--space-5);
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-top: 1px solid var(--border-subtle);
   margin-top: var(--space-2);
   padding-top: var(--space-3);
 }
