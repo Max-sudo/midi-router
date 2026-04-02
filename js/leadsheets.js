@@ -78,8 +78,7 @@ const FILES = [
   "Joy_Spring.png",
   "Like_Someone_In_Love.png",
   "Lush_Life.png",
-  "Misty_p1.png",
-  "Misty_p2.png",
+  "Misty.png",
   "My_Favorite_Things.png",
   "My_Foolish_Heart.png",
   "My_Funny_Valentine.png",
@@ -627,10 +626,10 @@ function renderSetListEditor() {
     });
 
     row.appendChild(handle);
+    row.appendChild(removeBtn);
     row.appendChild(num);
     row.appendChild(dots);
     row.appendChild(name);
-    row.appendChild(removeBtn);
     attachDragEvents(row, i);
     setListSongsEl.appendChild(row);
   });
@@ -783,7 +782,7 @@ function attachDragEvents(row, i) {
 
 function addToActiveSetList(title) {
   const sl = getSetList(activeSetListId);
-  if (!sl || sl.songs.includes(title)) return;
+  if (!sl) return;
   sl.songs.push(title);
   saveSetLists(setLists);
   renderSetListEditor();
