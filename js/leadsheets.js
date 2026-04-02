@@ -434,8 +434,8 @@ function renderSetListsSidebar() {
     if (sl.id === activeSetListId) item.classList.add('ls-setlist-item--active');
     item.textContent = sl.name;
     item.addEventListener('click', () => {
-      if (activeSetListId === sl.id) closeSetList();
-      else openSetList(sl.id);
+      if (activeSetListId === sl.id) return; // already viewing this set list
+      openSetList(sl.id);
     });
     setListsEl.appendChild(item);
   }
@@ -451,6 +451,10 @@ function closeSetList() {
 // ── Select a sheet ─────────────────────────────────────────────────
 function selectSheet(sheet, fromSetList = false) {
   selectedTitle = sheet.name;
+
+  // Hide overlay if open
+  const overlay = panel.querySelector('#ls-setlist-overlay');
+  if (overlay) overlay.hidden = true;
 
   if (!fromSetList) {
     activeSetListId = null;
@@ -573,13 +577,15 @@ function renderSetListEditor() {
 
     const row = document.createElement('div');
     row.className = 'ls-setlist-row';
-    row.draggable = true;
     row.dataset.index = i;
 
-    // Drag handle
+    // Drag handle — only this element initiates drag
     const handle = document.createElement('span');
     handle.className = 'ls-setlist-row__handle';
     handle.innerHTML = '⠿';
+    handle.addEventListener('mousedown', () => { row.draggable = true; });
+    handle.addEventListener('touchstart', () => { row.draggable = true; }, { passive: true });
+    row.addEventListener('dragend', () => { row.draggable = false; });
 
     const num = document.createElement('span');
     num.className = 'ls-setlist-row__num';
@@ -623,6 +629,60 @@ function renderSetListEditor() {
     row.appendChild(removeBtn);
     setListSongsEl.appendChild(row);
   });
+}
+
+// ── Set list overlay (semi-transparent, over the lead sheet) ─────
+function renderSetListOverlay() {
+  const overlay = panel.querySelector('#ls-setlist-overlay');
+  const list = panel.querySelector('#ls-setlist-overlay-list');
+  if (!overlay || !list) return;
+
+  const sl = getSetList(activeSetListId);
+  if (!sl) return;
+
+  list.innerHTML = '';
+
+  let songNum = 0;
+  let setNum = 1;
+  for (const entry of sl.songs) {
+    if (entry === '__break__') {
+      setNum++;
+      const breakEl = document.createElement('div');
+      breakEl.className = 'ls-overlay-break';
+      breakEl.textContent = `Set ${setNum}`;
+      list.appendChild(breakEl);
+      songNum = 0;
+      continue;
+    }
+
+    songNum++;
+    const row = document.createElement('div');
+    row.className = 'ls-overlay-row';
+    if (displayName(entry) === selectedTitle) row.classList.add('ls-overlay-row--active');
+
+    const numEl = document.createElement('span');
+    numEl.className = 'ls-overlay-row__num';
+    numEl.textContent = songNum;
+    row.appendChild(numEl);
+
+    const nameEl = document.createElement('span');
+    nameEl.className = 'ls-overlay-row__name';
+    nameEl.textContent = displayName(entry);
+    row.appendChild(nameEl);
+
+    row.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const sheet = sheets.find(s => s.name === displayName(entry) || s.origTitles.includes(entry));
+      if (sheet) {
+        selectSheet(sheet, true);
+        overlay.hidden = true;
+      }
+    });
+
+    list.appendChild(row);
+  }
+
+  overlay.hidden = false;
 }
 
 const DRAG_ROW_SELECTOR = '.ls-setlist-row, .ls-setlist-break';
@@ -883,6 +943,10 @@ export function init() {
             <div class="ls-tag-picker" id="ls-tag-picker"></div>
           </div>
           <div class="ls-viewer__pages" id="ls-viewer-pages"></div>
+          <!-- Semi-transparent set list overlay -->
+          <div id="ls-setlist-overlay" class="ls-setlist-overlay" hidden>
+            <div class="ls-setlist-overlay__list" id="ls-setlist-overlay-list"></div>
+          </div>
         </div>
 
         <!-- Rename panel -->
@@ -974,16 +1038,16 @@ export function init() {
     }
 
     if (activeSetListId) {
-      // We're viewing a song from a set list
-      const isFullScreen = sidebarEl.classList.contains('ls-sidebar--hidden') && setListPanel.hidden;
-      if (isFullScreen) {
-        // Bring back the set list editor
-        sidebarEl.classList.remove('ls-sidebar--hidden');
-        hideAllPanels();
-        setListPanel.hidden = false;
-        renderSetListEditor();
+      // We're viewing a song from a set list — toggle overlay set list
+      const overlay = panel.querySelector('#ls-setlist-overlay');
+      if (overlay && !overlay.hidden) {
+        // Overlay is showing — hide it, go full screen
+        overlay.hidden = true;
+      } else if (sidebarEl.classList.contains('ls-sidebar--hidden') && setListPanel.hidden) {
+        // Full screen — show the overlay set list
+        renderSetListOverlay();
       } else {
-        // Collapse everything — full screen lead sheet
+        // Sidebar is visible — go full screen
         sidebarEl.classList.add('ls-sidebar--hidden');
         hideAllPanels();
         sheetPanel.hidden = false;
