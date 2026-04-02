@@ -435,7 +435,15 @@ function renderSetListsSidebar() {
     if (sl.id === activeSetListId) item.classList.add('ls-setlist-item--active');
     item.textContent = sl.name;
     item.addEventListener('click', () => {
-      if (activeSetListId === sl.id) return; // already viewing this set list
+      if (activeSetListId === sl.id) {
+        // Already in this set list — switch to editor/reorder view
+        const overlay = panelEl?.querySelector('#ls-setlist-overlay');
+        if (overlay) overlay.hidden = true;
+        hideAllPanels();
+        setListPanel.hidden = false;
+        renderSetListEditor();
+        return;
+      }
       openSetList(sl.id);
     });
     setListsEl.appendChild(item);
@@ -621,13 +629,12 @@ function renderSetListEditor() {
       renderSetListEditor();
     });
 
-    attachDragEvents(row, i, sl);
-
     row.appendChild(handle);
     row.appendChild(num);
     row.appendChild(dots);
     row.appendChild(name);
     row.appendChild(removeBtn);
+    attachDragEvents(row, i, sl);
     setListSongsEl.appendChild(row);
   });
 }
@@ -718,41 +725,47 @@ function attachDragEvents(row, i, sl) {
     renderSetListEditor();
   });
 
-  // Touch drag events
-  row.addEventListener('touchstart', (e) => {
-    if (e.target.closest('.ls-setlist-row__btn') || e.target.closest('.ls-setlist-row__name')) return;
-    dragSrcIndex = i;
-    row.classList.add('ls-setlist-row--dragging');
-  }, { passive: true });
-  row.addEventListener('touchmove', (e) => {
-    if (dragSrcIndex === null) return;
-    e.preventDefault();
-    const touch = e.touches[0];
-    const target = document.elementFromPoint(touch.clientX, touch.clientY);
-    const targetRow = target?.closest(DRAG_ROW_SELECTOR);
-    for (const r of setListSongsEl.querySelectorAll(DRAG_ROW_SELECTOR)) {
-      r.classList.remove('ls-setlist-row--over');
-    }
-    if (targetRow) targetRow.classList.add('ls-setlist-row--over');
-  }, { passive: false });
-  row.addEventListener('touchend', (e) => {
-    if (dragSrcIndex === null) return;
-    row.classList.remove('ls-setlist-row--dragging');
-    const touch = e.changedTouches[0];
-    const target = document.elementFromPoint(touch.clientX, touch.clientY);
-    const targetRow = target?.closest(DRAG_ROW_SELECTOR);
-    const targetIndex = targetRow ? parseInt(targetRow.dataset.index) : null;
-    for (const r of setListSongsEl.querySelectorAll(DRAG_ROW_SELECTOR)) {
-      r.classList.remove('ls-setlist-row--over');
-    }
-    if (targetIndex !== null && targetIndex !== dragSrcIndex) {
-      const [moved] = sl.songs.splice(dragSrcIndex, 1);
-      sl.songs.splice(targetIndex, 0, moved);
-      saveSetLists(setLists);
-      renderSetListEditor();
-    }
-    dragSrcIndex = null;
-  });
+  // Touch drag events — only from handle
+  const handle = row.querySelector('.ls-setlist-row__handle');
+  if (handle) {
+    let touchDragging = false;
+    handle.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      touchDragging = true;
+      dragSrcIndex = i;
+      row.classList.add('ls-setlist-row--dragging');
+    });
+    handle.addEventListener('touchmove', (e) => {
+      if (!touchDragging) return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+      const targetRow = target?.closest(DRAG_ROW_SELECTOR);
+      for (const r of setListSongsEl.querySelectorAll(DRAG_ROW_SELECTOR)) {
+        r.classList.remove('ls-setlist-row--over');
+      }
+      if (targetRow) targetRow.classList.add('ls-setlist-row--over');
+    });
+    handle.addEventListener('touchend', (e) => {
+      if (!touchDragging) return;
+      touchDragging = false;
+      row.classList.remove('ls-setlist-row--dragging');
+      const touch = e.changedTouches[0];
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+      const targetRow = target?.closest(DRAG_ROW_SELECTOR);
+      const targetIndex = targetRow ? parseInt(targetRow.dataset.index) : null;
+      for (const r of setListSongsEl.querySelectorAll(DRAG_ROW_SELECTOR)) {
+        r.classList.remove('ls-setlist-row--over');
+      }
+      if (targetIndex !== null && targetIndex !== dragSrcIndex) {
+        const [moved] = sl.songs.splice(dragSrcIndex, 1);
+        sl.songs.splice(targetIndex, 0, moved);
+        saveSetLists(setLists);
+        renderSetListEditor();
+      }
+      dragSrcIndex = null;
+    });
+  }
 }
 
 function addToActiveSetList(title) {
@@ -1058,6 +1071,14 @@ export function init() {
     } else {
       // Normal library mode — just toggle sidebar
       sidebarEl.classList.toggle('ls-sidebar--hidden');
+    }
+  });
+
+  // Click overlay backdrop (outside the list) to dismiss and return to lead sheet
+  const overlayEl = panel.querySelector('#ls-setlist-overlay');
+  overlayEl.addEventListener('click', (e) => {
+    if (e.target === overlayEl) {
+      overlayEl.hidden = true;
     }
   });
 

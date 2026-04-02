@@ -37,12 +37,11 @@
 }
 
 .header__version {
-  font-size: 10px;
-  color: var(--text-tertiary);
-  opacity: 0.5;
+  font-size: 11px;
+  color: #fff;
   white-space: nowrap;
   flex-shrink: 0;
-  padding: 0 var(--space-2);
+  padding: 0 var(--space-3);
   align-self: center;
 }
 
