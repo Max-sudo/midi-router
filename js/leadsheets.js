@@ -574,7 +574,7 @@ function renderSetListEditor() {
       breakRow.appendChild(label);
       breakRow.appendChild(removeBtn);
 
-      attachDragEvents(breakRow, i, sl);
+      attachDragEvents(breakRow, i);
 
       setListSongsEl.appendChild(breakRow);
       songNum = 0;
@@ -588,13 +588,10 @@ function renderSetListEditor() {
     row.className = 'ls-setlist-row';
     row.dataset.index = i;
 
-    // Drag handle — only this element initiates drag
+    // Drag handle
     const handle = document.createElement('span');
     handle.className = 'ls-setlist-row__handle';
     handle.innerHTML = '⠿';
-    handle.addEventListener('mousedown', () => { row.draggable = true; });
-    handle.addEventListener('touchstart', () => { row.draggable = true; }, { passive: true });
-    row.addEventListener('dragend', () => { row.draggable = false; });
 
     const num = document.createElement('span');
     num.className = 'ls-setlist-row__num';
@@ -634,7 +631,7 @@ function renderSetListEditor() {
     row.appendChild(dots);
     row.appendChild(name);
     row.appendChild(removeBtn);
-    attachDragEvents(row, i, sl);
+    attachDragEvents(row, i);
     setListSongsEl.appendChild(row);
   });
 }
@@ -695,77 +692,93 @@ function renderSetListOverlay() {
 
 const DRAG_ROW_SELECTOR = '.ls-setlist-row, .ls-setlist-break';
 
-function attachDragEvents(row, i, sl) {
-  row.addEventListener('dragstart', (e) => {
-    dragSrcIndex = i;
-    row.classList.add('ls-setlist-row--dragging');
-    e.dataTransfer.effectAllowed = 'move';
-  });
-  row.addEventListener('dragend', () => {
-    row.classList.remove('ls-setlist-row--dragging');
-    for (const r of setListSongsEl.querySelectorAll(DRAG_ROW_SELECTOR)) {
-      r.classList.remove('ls-setlist-row--over');
-    }
-  });
-  row.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    for (const r of setListSongsEl.querySelectorAll(DRAG_ROW_SELECTOR)) {
-      r.classList.remove('ls-setlist-row--over');
-    }
-    row.classList.add('ls-setlist-row--over');
-  });
-  row.addEventListener('drop', (e) => {
-    e.preventDefault();
-    if (dragSrcIndex === null || dragSrcIndex === i) return;
-    const [moved] = sl.songs.splice(dragSrcIndex, 1);
-    sl.songs.splice(i, 0, moved);
+function attachDragEvents(row, i) {
+  const handle = row.querySelector('.ls-setlist-row__handle');
+  if (!handle) return;
+
+  let dragging = false;
+
+  function doReorder(targetIndex) {
+    if (targetIndex === null || targetIndex === i) return;
+    // Re-fetch the set list to avoid stale closure
+    const currentSl = getSetList(activeSetListId);
+    if (!currentSl) return;
+    const [moved] = currentSl.songs.splice(dragSrcIndex, 1);
+    currentSl.songs.splice(targetIndex, 0, moved);
     dragSrcIndex = null;
     saveSetLists(setLists);
     renderSetListEditor();
+  }
+
+  function clearHighlights() {
+    for (const r of setListSongsEl.querySelectorAll(DRAG_ROW_SELECTOR)) {
+      r.classList.remove('ls-setlist-row--over');
+    }
+  }
+
+  // Touch reorder (tablet)
+  handle.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    dragging = true;
+    dragSrcIndex = i;
+    row.classList.add('ls-setlist-row--dragging');
   });
 
-  // Touch drag events — only from handle
-  const handle = row.querySelector('.ls-setlist-row__handle');
-  if (handle) {
-    let touchDragging = false;
-    handle.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      touchDragging = true;
-      dragSrcIndex = i;
-      row.classList.add('ls-setlist-row--dragging');
-    });
-    handle.addEventListener('touchmove', (e) => {
-      if (!touchDragging) return;
-      e.preventDefault();
-      const touch = e.touches[0];
-      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+  handle.addEventListener('touchmove', (e) => {
+    if (!dragging) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    const target = document.elementFromPoint(touch.clientX, touch.clientY);
+    const targetRow = target?.closest(DRAG_ROW_SELECTOR);
+    clearHighlights();
+    if (targetRow && parseInt(targetRow.dataset.index) !== i) {
+      targetRow.classList.add('ls-setlist-row--over');
+    }
+  });
+
+  handle.addEventListener('touchend', (e) => {
+    if (!dragging) return;
+    dragging = false;
+    row.classList.remove('ls-setlist-row--dragging');
+    const touch = e.changedTouches[0];
+    const target = document.elementFromPoint(touch.clientX, touch.clientY);
+    const targetRow = target?.closest(DRAG_ROW_SELECTOR);
+    const targetIndex = targetRow ? parseInt(targetRow.dataset.index) : null;
+    clearHighlights();
+    doReorder(targetIndex);
+  });
+
+  // Mouse reorder (desktop)
+  handle.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    dragging = true;
+    dragSrcIndex = i;
+    row.classList.add('ls-setlist-row--dragging');
+
+    const onMouseMove = (me) => {
+      const target = document.elementFromPoint(me.clientX, me.clientY);
       const targetRow = target?.closest(DRAG_ROW_SELECTOR);
-      for (const r of setListSongsEl.querySelectorAll(DRAG_ROW_SELECTOR)) {
-        r.classList.remove('ls-setlist-row--over');
+      clearHighlights();
+      if (targetRow && parseInt(targetRow.dataset.index) !== i) {
+        targetRow.classList.add('ls-setlist-row--over');
       }
-      if (targetRow) targetRow.classList.add('ls-setlist-row--over');
-    });
-    handle.addEventListener('touchend', (e) => {
-      if (!touchDragging) return;
-      touchDragging = false;
+    };
+
+    const onMouseUp = (me) => {
+      dragging = false;
       row.classList.remove('ls-setlist-row--dragging');
-      const touch = e.changedTouches[0];
-      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+      const target = document.elementFromPoint(me.clientX, me.clientY);
       const targetRow = target?.closest(DRAG_ROW_SELECTOR);
       const targetIndex = targetRow ? parseInt(targetRow.dataset.index) : null;
-      for (const r of setListSongsEl.querySelectorAll(DRAG_ROW_SELECTOR)) {
-        r.classList.remove('ls-setlist-row--over');
-      }
-      if (targetIndex !== null && targetIndex !== dragSrcIndex) {
-        const [moved] = sl.songs.splice(dragSrcIndex, 1);
-        sl.songs.splice(targetIndex, 0, moved);
-        saveSetLists(setLists);
-        renderSetListEditor();
-      }
-      dragSrcIndex = null;
-    });
-  }
+      clearHighlights();
+      doReorder(targetIndex);
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  });
 }
 
 function addToActiveSetList(title) {
