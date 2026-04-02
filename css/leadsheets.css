@@ -209,8 +209,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-2) var(--space-4);
-  font-size: var(--font-size-sm);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-base);
   font-weight: var(--font-weight-bold);
   color: var(--text-secondary);
   position: sticky;
@@ -230,8 +230,8 @@
 .ls-setlists-new:hover { opacity: 0.8; }
 
 .ls-setlist-item {
-  padding: var(--space-1) var(--space-4) var(--space-1) var(--space-6);
-  font-size: var(--font-size-sm);
+  padding: var(--space-3) var(--space-4) var(--space-3) var(--space-6);
+  font-size: 15px;
   color: var(--text-secondary);
   cursor: pointer;
   white-space: nowrap;
@@ -436,9 +436,9 @@
   border: none;
   border-bottom: 1px solid var(--border-default);
   color: var(--text-primary);
-  font-size: var(--font-size-lg);
+  font-size: 20px;
   font-weight: var(--font-weight-bold);
-  padding: var(--space-1) 0;
+  padding: var(--space-2) 0;
   outline: none;
 }
 
@@ -507,12 +507,11 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-4);
-  font-size: var(--font-size-sm);
+  padding: var(--space-3) var(--space-4);
+  font-size: 15px;
   transition: background var(--transition-base);
-  cursor: grab;
+  cursor: default;
   user-select: none;
-  touch-action: none;
 }
 
 .ls-setlist-row:active { cursor: grabbing; }
@@ -538,8 +537,8 @@
 
 .ls-setlist-row__num {
   color: var(--text-secondary);
-  font-size: 11px;
-  width: 18px;
+  font-size: 14px;
+  width: 22px;
   text-align: right;
   flex-shrink: 0;
 }
@@ -547,6 +546,7 @@
 .ls-setlist-row__name {
   flex: 1;
   color: var(--text-primary);
+  font-size: 15px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
