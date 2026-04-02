@@ -256,6 +256,7 @@ let sheets = buildGroupedSheets();
 let filteredSheets = [...sheets];
 
 // DOM refs
+let panelEl;
 let listEl, setListsEl, viewerPages, viewerTitleEl, viewerEmpty,
     viewerHeader, tagPickerEl, sheetPanel, setListPanel,
     setListNameEl, setListSongsEl, searchEl, sidebarEl, toggleBtn;
@@ -453,7 +454,7 @@ function selectSheet(sheet, fromSetList = false) {
   selectedTitle = sheet.name;
 
   // Hide overlay if open
-  const overlay = panel.querySelector('#ls-setlist-overlay');
+  const overlay = panelEl?.querySelector('#ls-setlist-overlay');
   if (overlay) overlay.hidden = true;
 
   if (!fromSetList) {
@@ -633,8 +634,8 @@ function renderSetListEditor() {
 
 // ── Set list overlay (semi-transparent, over the lead sheet) ─────
 function renderSetListOverlay() {
-  const overlay = panel.querySelector('#ls-setlist-overlay');
-  const list = panel.querySelector('#ls-setlist-overlay-list');
+  const overlay = panelEl.querySelector('#ls-setlist-overlay');
+  const list = panelEl.querySelector('#ls-setlist-overlay-list');
   if (!overlay || !list) return;
 
   const sl = getSetList(activeSetListId);
@@ -906,6 +907,7 @@ function playNavigate(dir) {
 export function init() {
   const panel = $('#leadsheets-panel');
   if (!panel) return;
+  panelEl = panel;
 
   panel.innerHTML = `
     <div class="ls-layout">

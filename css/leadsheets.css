@@ -524,12 +524,13 @@
 .ls-setlist-row__handle {
   color: var(--text-secondary);
   cursor: grab;
-  font-size: 22px;
+  font-size: 28px;
   flex-shrink: 0;
   opacity: 0.5;
-  padding: 4px 6px;
+  padding: 8px 10px;
   touch-action: none;
   -webkit-tap-highlight-color: transparent;
+  line-height: 1;
 }
 
 .ls-setlist-row:hover .ls-setlist-row__handle { opacity: 1; }
